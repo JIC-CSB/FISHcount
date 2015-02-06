@@ -83,28 +83,32 @@ def get_masked_stack(stack, mask):
         ar[:,:,i] = stack[:,:,i] * mask
     return ar
 
-def get_local_maxima(im_array, indices, min_distance=50, threshold_rel=0.5):
+def get_local_maxima(im_array, min_distance, threshold_rel):
     """Return the local maxima."""
-    return peak_local_max(im_array,
-                          indices=indices,
+    img =  peak_local_max(im_array,
+                          indices=False,
                           min_distance=min_distance,
                           threshold_rel=threshold_rel)
+    coords =  peak_local_max(im_array,
+                             indices=True,
+                             min_distance=min_distance,
+                             threshold_rel=threshold_rel)
+    return img, coords
     
 
-def get_markers(im_array):
+def get_markers(im_array, min_distance, threshold_rel):
     """Return markers for the watershed algorithm."""
-    local_maxima = get_local_maxima(im_array, indices=False)
-    markers = ndimage.label(local_maxima)[0]
-    return markers
+    img, coords = get_local_maxima(im_array, min_distance, threshold_rel)
+    markers = ndimage.label(img)[0]
+    return markers, coords
 
 def get_thresholded_image(im_array):
     """Return thresholded image."""
     thresh = threshold_otsu(im_array)
     return im_array > thresh
     
-def get_rois(im_array):
+def get_rois(im_array, markers):
     """Return the regions of interest."""
-    markers = get_markers(im_array)
     salem = disk(3)
     im = get_thresholded_image(im_array)
     im = remove_small_objects(im, min_size=50)
@@ -123,12 +127,13 @@ def get_blobs(im_stack, sigma):
     """Return enhanced blobs from Gaussian of Laplace transformation."""
     return ndimage.filters.gaussian_laplace(im_stack, sigma)
 
-def save_summary_image(output_dir, blue_average_im, green_average_im, mask_outline, rna_molecules):
+def save_summary_image(output_dir, blue_average_im, green_average_im, nuclei_coords, mask_outline, rna_molecules):
     """Save a summary image."""
-    
+
     # Display the average blue channel.
     plt.subplot('221')
     plt.imshow(blue_average_im, cmap=plt.cm.Blues)
+    plt.plot(nuclei_coords[:,1], nuclei_coords[:,0], 'r.')
     plt.title('Blue channel average z-stack projection.', fontsize=10)
 
     # Display the segmentation from the average blue channel.
@@ -227,22 +232,30 @@ def analyse_image(directory):
     output_dir = os.path.join(directory, 'analysis')
     if not os.path.isdir(output_dir):
         os.mkdir(output_dir)
-    
-    # Segment into cells.
+
+    # Create lists of file paths.
+    green_fpaths = get_fpaths(directory, 0)
     blue_fpaths = get_fpaths(directory, 2)
+    
+    # Create z-projected average images.
     blue_average_im = get_average_image_from_fpaths(blue_fpaths)
-    blue_rois = get_rois(blue_average_im)
-    cell_mask = np.array(blue_rois, dtype=bool)
-    mask_outline = get_mask_outline(blue_rois)
+    green_average_im = get_average_image_from_fpaths(green_fpaths)
+
+    # Create markers for the segmentation.
+    nuclei_loc_im, nuclei_coords = get_markers(blue_average_im,
+                                           min_distance=50,
+                                           threshold_rel=0.5)
+
+    # Segment into cells.
+    rois = get_rois(green_average_im, nuclei_loc_im)
+    cell_mask = np.array(rois, dtype=bool)
+    mask_outline = get_mask_outline(rois)
 
     # Find fluorescent blobs.
-    green_fpaths = get_fpaths(directory, 0)
-    green_average_im = get_average_image_from_fpaths(green_fpaths)
     green_stack = get_stack(green_fpaths)
     green_blobs = get_blobs(green_stack, sigma=0)
     green_blobs_in_cells = get_masked_stack(green_blobs, cell_mask)
-    rna_molecules = get_local_maxima(green_blobs_in_cells,
-                                     indices=True,
+    _, rna_molecules = get_local_maxima(green_blobs_in_cells,
                                      min_distance=5,
                                      threshold_rel=0.5)
 
@@ -251,6 +264,7 @@ def analyse_image(directory):
     save_summary_image(output_dir,
                        blue_average_im,
                        green_average_im,
+                       nuclei_coords,
                        mask_outline,
                        rna_molecules)
 
