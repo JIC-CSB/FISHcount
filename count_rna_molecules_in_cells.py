@@ -5,13 +5,17 @@ import os.path
 
 import argparse
 
+import re
+
 from libtiff import TIFF
 
 import numpy as np
 from scipy import ndimage
 
+from skimage.color import gray2rgb
 from skimage.feature import peak_local_max
 from skimage.filter import threshold_otsu, sobel
+from skimage.draw import circle_perimeter
 from skimage.morphology import (
     disk,
     remove_small_objects,
@@ -25,6 +29,12 @@ import matplotlib.pyplot as plt
 
 INPUT_DIR = "/localscratch/olssont/flc_single_mol_analysis/"
 
+def sorted_nicely( l ):
+    """ Sort the given iterable in the way that humans expect."""
+    convert = lambda text: int(text) if text.isdigit() else text
+    alphanum_key = lambda key: [ convert(c) for c in re.split('([0-9]+)', key) ]
+    return sorted(l, key = alphanum_key)
+
 def get_fpaths(directory, channel_index):
     """Yield the file paths for a particular channel."""
     fpaths = []
@@ -35,7 +45,7 @@ def get_fpaths(directory, channel_index):
         channel = name.split('_')[-1]
         if channel == 'C{}'.format(channel_index):
             fpaths.append(os.path.join(directory, fname))
-    return fpaths
+    return sorted_nicely(fpaths)
 
 def get_image(fpath):
     """Return image array."""
@@ -54,20 +64,21 @@ def get_average_image_from_fpaths(fpaths):
     ar = np.zeros(shape, dtype=float)
     for fpath in fpaths:
         ar = ar + get_image(fpath)
-    return ar / len(fpaths)
+    ar = ar / len(fpaths)
+    return np.array(ar, dtype=np.uint16)
 
 def get_stack(fpaths):
     """Return 3D array from a list of image file paths."""
     shape = get_image(fpaths[0]).shape
     shape_3d = shape[0], shape[1], len(fpaths)
-    ar = np.zeros(shape_3d, dtype=float)
+    ar = np.zeros(shape_3d, dtype=np.uint16)
     for i, fpath in enumerate(fpaths):
         ar[:,:,i] = get_image(fpath)
     return ar
 
 def get_masked_stack(stack, mask):
     """Return masked stack."""
-    ar = np.zeros(stack.shape, dtype=float)
+    ar = np.zeros(stack.shape, dtype=np.uint16)
     for i in range(stack.shape[2]):
         ar[:,:,i] = stack[:,:,i] * mask
     return ar
@@ -110,21 +121,11 @@ def get_mask_outline(mask):
 
 def get_blobs(im_stack, sigma):
     """Return enhanced blobs from Gaussian of Laplace transformation."""
-    stack = ndimage.filters.gaussian_laplace(im_stack, sigma)
-    return stack
+    return ndimage.filters.gaussian_laplace(im_stack, sigma)
 
-def analyse_image(directory):
-    output_dir = os.path.join(directory, 'analysis')
-    if not os.path.isdir(output_dir):
-        os.mkdir(output_dir)
+def save_summary_image(output_dir, blue_average_im, green_average_im, mask_outline, rna_molecules):
+    """Save a summary image."""
     
-    # Segment into cells.
-    blue_fpaths = get_fpaths(directory, 2)
-    blue_average_im = get_average_image_from_fpaths(blue_fpaths)
-    blue_rois = get_rois(blue_average_im)
-    cell_mask = np.array(blue_rois, dtype=bool)
-    mask_outline = get_mask_outline(blue_rois)
-
     # Display the average blue channel.
     plt.subplot('221')
     plt.imshow(blue_average_im, cmap=plt.cm.Blues)
@@ -135,17 +136,6 @@ def analyse_image(directory):
     plt.imshow(blue_average_im, cmap=plt.cm.Blues)
     plt.imshow(mask_outline, cmap=plt.cm.gray)
     plt.title('Segmentation from average blue channel.', fontsize=10)
-
-    # Find fluorescent blobs.
-    green_fpaths = get_fpaths(directory, 0)
-    green_average_im = get_average_image_from_fpaths(green_fpaths)
-    green_stack = get_stack(green_fpaths)
-    green_blobs = get_blobs(green_stack, sigma=3)
-    green_blobs_in_cells = get_masked_stack(green_blobs, cell_mask)
-    rna_molecules = get_local_maxima(-green_blobs_in_cells,
-                                     indices=True,
-                                     min_distance=5,
-                                     threshold_rel=0.3)
 
     # Display average green channel.
     plt.subplot('223')
@@ -166,46 +156,116 @@ def analyse_image(directory):
     plt.title('Number of RNA molecules: {}'.format(len(rna_molecules)), fontsize=10)
     plt.savefig(os.path.join(output_dir, 'summary.png'))
 
-    # Write out the stack to a tmp directory.
+def save_augmented_rna_stack(output_dir, green_stack, green_blobs, cell_mask, rna_molecules):
+    """Save stack of green channel with detection highlighted."""
+    def get_circle_im(shape, coordinates, radius=3):
+        im = np.zeros(shape, dtype=bool)
+        for x, y, z in coordinates:
+            rr, cc = circle_perimeter(x, y, radius)
+            im[rr, cc] = True
+        return im
+        
+    def scale_uint16_to_uint8(uint16):
+        uint16_max = 65535.0
+        uint8_max = 255.0
+        scale = uint8_max / uint16_max
+        scaled =  np.array(uint16*scale, dtype=float)
+        scaled[ scaled > 255 ] = 255
+        return np.array(scaled, dtype=np.uint8)
+
+    def get_augmented_rgb(im, all_circles, in_plane_circles):
+        rgb = gray2rgb(im)
+        rgb = scale_uint16_to_uint8(rgb)
+        red = rgb[:,:,0]
+        green = rgb[:,:,1]
+        blue = rgb[:,:,2]
+
+        # Add the circles
+        red[all_circles] = 255
+        green[all_circles] = 0
+        blue[all_circles] = 0
+        blue[in_plane_circles] = 255
+        return red, green,blue
+
+    def append_images(im1, im2):
+        rows1 = im1.shape[0]
+        rows2 = im2.shape[0]
+        return np.concatenate((im1, im2), axis=1)
+
     green_stack_in_cells = get_masked_stack(green_stack, cell_mask)
+    green_blobs_in_cells = get_masked_stack(green_blobs, cell_mask)
+    all_circles = get_circle_im(cell_mask.shape, rna_molecules)
+
     stack_dir = os.path.join(output_dir, 'stack')
     if not os.path.isdir(stack_dir):
         os.mkdir(stack_dir)
+
     for i in range(green_stack_in_cells.shape[2]):
-        im = green_stack_in_cells[:,:,i]
+        org_im = green_stack_in_cells[:,:,i]
+        blob_im = green_blobs_in_cells[:,:,i]
         rna_mols_in_plane = []
         for x in rna_molecules:
             if x[2] == i:
                 rna_mols_in_plane.append(x)
-        num_rna_mols_in_plane = len(rna_mols_in_plane)
-        ax = plt.subplot('111')
-        plt.axis('off')
-        plt.imshow(im, cmap=plt.cm.Greens)
-        ax.autoscale(False)
-        plt.plot(rna_molecules[:,1], rna_molecules[:,0],
-                 marker='o',
-                 markeredgecolor='purple',
-                 fillstyle='none',
-                 linestyle='none',
-        )
-        if num_rna_mols_in_plane > 0:
-            coords = np.array(rna_mols_in_plane)
-            plt.plot(coords[:,1], coords[:,0],
-                     marker='o',
-                     markeredgecolor='red',
-                     fillstyle='none',
-                     linestyle='none',
-            )
-        plt.savefig(os.path.join(stack_dir, '{:04}.tif'.format(i)),
-                    dpi=300,
-                    bbox_inches='tight')
+        in_plane_circles = get_circle_im(cell_mask.shape, rna_mols_in_plane)
+
+        # Create rgb channels.
+        r1, g1, b1 = get_augmented_rgb(org_im, all_circles, in_plane_circles)
+        r2, g2, b2 = get_augmented_rgb(blob_im, all_circles, in_plane_circles)
+        red = append_images(r1, r2)
+        green = append_images(g1, g2)
+        blue = append_images(b1, b2)
+        
+        # Write the augmented rgb tif.
+        out_fn = os.path.join(stack_dir, '{:04}.tif'.format(i))
+        tif = TIFF.open(out_fn, 'w')
+        rgb_stack = np.array([red, green, blue])
+        tif.write_image(rgb_stack, write_rgb=True)
+
+def analyse_image(directory):
+    print('Working on {}...'.format(directory))
+    output_dir = os.path.join(directory, 'analysis')
+    if not os.path.isdir(output_dir):
+        os.mkdir(output_dir)
     
+    # Segment into cells.
+    blue_fpaths = get_fpaths(directory, 2)
+    blue_average_im = get_average_image_from_fpaths(blue_fpaths)
+    blue_rois = get_rois(blue_average_im)
+    cell_mask = np.array(blue_rois, dtype=bool)
+    mask_outline = get_mask_outline(blue_rois)
+
+    # Find fluorescent blobs.
+    green_fpaths = get_fpaths(directory, 0)
+    green_average_im = get_average_image_from_fpaths(green_fpaths)
+    green_stack = get_stack(green_fpaths)
+    green_blobs = get_blobs(green_stack, sigma=0)
+    green_blobs_in_cells = get_masked_stack(green_blobs, cell_mask)
+    rna_molecules = get_local_maxima(green_blobs_in_cells,
+                                     indices=True,
+                                     min_distance=5,
+                                     threshold_rel=0.5)
+
+
+    # Save summary image.
+    save_summary_image(output_dir,
+                       blue_average_im,
+                       green_average_im,
+                       mask_outline,
+                       rna_molecules)
+
+    # Save the augmented stack.
+    save_augmented_rna_stack(output_dir,
+                             green_stack,
+                             green_blobs,
+                             cell_mask,
+                             rna_molecules)
+
 def do_all(input_dir):
     """Do analysis on all subdirs in an input directory."""
     for d in os.listdir(input_dir):
         image_input_dir = os.path.join(input_dir, d)
         if os.path.isdir(image_input_dir):
-            print('Working on {}...'.format(image_input_dir))
             analyse_image(image_input_dir)
 
         
@@ -214,6 +274,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('input_dir')
     args = parser.parse_args()
-    do_all(args.input_dir)
+#   do_all(args.input_dir)
+    analyse_image(args.input_dir)
 
 
