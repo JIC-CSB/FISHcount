@@ -240,6 +240,7 @@ def analyse_image(directory):
     # Create z-projected average images.
     blue_average_im = get_average_image_from_fpaths(blue_fpaths)
     green_average_im = get_average_image_from_fpaths(green_fpaths)
+    bg_average_im = get_average_image_from_fpaths(blue_fpaths + green_fpaths)
 
     # Create markers for the segmentation.
     nuclei_loc_im, nuclei_coords = get_markers(blue_average_im,
@@ -247,7 +248,7 @@ def analyse_image(directory):
                                            threshold_rel=0.5)
 
     # Segment into cells.
-    rois = get_rois(green_average_im, nuclei_loc_im)
+    rois = get_rois(bg_average_im, nuclei_loc_im)
     cell_mask = np.array(rois, dtype=bool)
     mask_outline = get_mask_outline(rois)
 
