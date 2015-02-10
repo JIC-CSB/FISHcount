@@ -1,5 +1,7 @@
 """Script to detect and count spots in cells."""
 
+from __future__ import print_function
+
 import os
 import os.path
 
@@ -29,6 +31,13 @@ import matplotlib.pyplot as plt
 
 INPUT_DIR = "/localscratch/olssont/flc_single_mol_analysis/"
 
+def im_summary(im, name='image'):
+    print('{}.dtype  : {}'.format(name, im.dtype))
+    print('{}.shape  : {}'.format(name, im.shape))
+    print('{}.shape  : {}'.format(name, im.shape))
+    print('np.min({}): {}'.format(name, np.min(im)))
+    print('np.max({}): {}'.format(name, np.max(im)))
+
 def sorted_nicely( l ):
     """ Sort the given iterable in the way that humans expect."""
     convert = lambda text: int(text) if text.isdigit() else text
@@ -53,19 +62,11 @@ def get_image(fpath):
     im_array = tif.read_image()
     return im_array
 
-def get_average_image_from_stack(stack):
-    """Return average image from a stack of images."""
-    ar = np.sum(stack, axis=2)
-    return ar / stack.shape[2]
-
-def get_average_image_from_fpaths(fpaths):
-    """Return average image from a list of image file paths."""
-    shape = get_image(fpaths[0]).shape
-    ar = np.zeros(shape, dtype=float)
-    for fpath in fpaths:
-        ar = ar + get_image(fpath)
-    ar = ar / len(fpaths)
-    return np.array(ar, dtype=np.uint16)
+def get_normalised_image(im):
+    """Normalise the input image based on its maximum intensity."""
+    scale = np.max(im) / float(np.iinfo(im.dtype).max)
+    normalised = np.array(im * scale, dtype=im.dtype)
+    return normalised
 
 def get_stack(fpaths):
     """Return 3D array from a list of image file paths."""
@@ -74,6 +75,18 @@ def get_stack(fpaths):
     ar = np.zeros(shape_3d, dtype=np.uint16)
     for i, fpath in enumerate(fpaths):
         ar[:,:,i] = get_image(fpath)
+    return ar
+
+def get_average_image_from_stack(stack):
+    """Return average image from a stack of images."""
+    ar = np.sum(stack, axis=2)
+    return np.array(ar / stack.shape[2], dtype=stack.dtype)
+
+def get_normalised_stack(stack):
+    """Normalise each z-slice in a stack based on its maximum intensity."""
+    ar = np.zeros(stack.shape, dtype=stack.dtype)
+    for i in range(stack.shape[2]):
+        ar[:,:,i] = get_normalised_image( stack[:,:,i] )
     return ar
 
 def get_masked_stack(stack, mask):
@@ -123,33 +136,38 @@ def get_mask_outline(mask):
     outline[outline == 0] = np.nan
     return outline
 
+
 def get_blobs(im_stack, sigma):
     """Return enhanced blobs from Gaussian of Laplace transformation."""
     return ndimage.filters.gaussian_laplace(im_stack, sigma)
 
-def save_summary_image(output_dir, blue_average_im, green_average_im, nuclei_coords, mask_outline, rna_molecules):
+def save_summary_image(output_dir, blue_average_im, green_average_im,
+                       bg_average_im, nuclei_coords, mask_outline, rna_molecules):
     """Save a summary image."""
+
+    # Make sure that we are working with a clean slate.
+    fig = plt.figure()
 
     # Display the average blue channel.
     plt.subplot('221')
-    plt.imshow(blue_average_im, cmap=plt.cm.Blues)
+    plt.imshow(blue_average_im, cmap=plt.cm.gray)
     plt.plot(nuclei_coords[:,1], nuclei_coords[:,0], 'r.')
     plt.title('Blue channel average z-stack projection.', fontsize=10)
 
-    # Display the segmentation from the average blue channel.
-    plt.subplot('222')
-    plt.imshow(blue_average_im, cmap=plt.cm.Blues)
-    plt.imshow(mask_outline, cmap=plt.cm.gray)
-    plt.title('Segmentation from average blue channel.', fontsize=10)
-
     # Display average green channel.
-    plt.subplot('223')
-    plt.imshow(green_average_im, cmap=plt.cm.Greens)
+    plt.subplot('222')
+    plt.imshow(green_average_im, cmap=plt.cm.gray)
     plt.title('Green channel average z-stack projection.', fontsize=10)
+
+    # Display the segmentation from the average blue and green channel.
+    plt.subplot('223')
+    plt.imshow(bg_average_im, cmap=plt.cm.gray)
+    plt.imshow(mask_outline, cmap=plt.cm.gray)
+    plt.title('Segmentation from average blue and green channel.', fontsize=10)
 
     # Display the RNA molecules identified.
     ax = plt.subplot('224')
-    plt.imshow(green_average_im, cmap=plt.cm.Greens)
+    plt.imshow(green_average_im, cmap=plt.cm.gray)
     plt.imshow(mask_outline, cmap=plt.cm.gray)
     ax.autoscale(False)
     plt.plot(rna_molecules[:,1], rna_molecules[:,0],
@@ -160,6 +178,9 @@ def save_summary_image(output_dir, blue_average_im, green_average_im, nuclei_coo
     )
     plt.title('Number of RNA molecules: {}'.format(len(rna_molecules)), fontsize=10)
     plt.savefig(os.path.join(output_dir, 'summary.png'))
+
+    # Close the figure.
+    plt.close()
 
 def save_augmented_rna_stack(output_dir, green_stack, green_blobs, cell_mask, rna_molecules):
     """Save stack of green channel with detection highlighted."""
@@ -228,7 +249,7 @@ def save_augmented_rna_stack(output_dir, green_stack, green_blobs, cell_mask, rn
         tif.write_image(rgb_stack, write_rgb=True)
 
 def analyse_image(directory):
-    print('Working on {}...'.format(directory))
+    print('{:<30s} :'.format(os.path.basename(directory)), end=' ')
     output_dir = os.path.join(directory, 'analysis')
     if not os.path.isdir(output_dir):
         os.mkdir(output_dir)
@@ -238,33 +259,42 @@ def analyse_image(directory):
     blue_fpaths = get_fpaths(directory, 2)
     
     # Create z-projected average images.
-    blue_average_im = get_average_image_from_fpaths(blue_fpaths)
-    green_average_im = get_average_image_from_fpaths(green_fpaths)
-    bg_average_im = get_average_image_from_fpaths(blue_fpaths + green_fpaths)
+    blue_average_im = get_average_image_from_stack(get_stack(blue_fpaths))
+    green_average_im = get_average_image_from_stack(get_stack(green_fpaths))
+    bg_average_im = get_average_image_from_stack(
+                        get_normalised_stack(
+                            get_stack(blue_fpaths + green_fpaths)
+                        )
+                    )
 
     # Create markers for the segmentation.
     nuclei_loc_im, nuclei_coords = get_markers(blue_average_im,
-                                           min_distance=50,
-                                           threshold_rel=0.5)
+                                               min_distance=50,
+                                               threshold_rel=0.5)
 
     # Segment into cells.
-    rois = get_rois(bg_average_im, nuclei_loc_im)
-    cell_mask = np.array(rois, dtype=bool)
+    roi_input_im = ndimage.filters.gaussian_filter(bg_average_im, sigma=2)
+    rois = get_rois(roi_input_im, nuclei_loc_im)
+    cell_mask = rois > 0
     mask_outline = get_mask_outline(rois)
 
     # Find fluorescent blobs.
     green_stack = get_stack(green_fpaths)
-    green_blobs = get_blobs(green_stack, sigma=0)
+    green_stack_normalised = get_normalised_stack(green_stack)
+    green_blobs = get_blobs(green_stack_normalised, sigma=0)
     green_blobs_in_cells = get_masked_stack(green_blobs, cell_mask)
     _, rna_molecules = get_local_maxima(green_blobs_in_cells,
                                      min_distance=5,
-                                     threshold_rel=0.5)
+                                     threshold_rel=0.7)
+    print('{:7d}:num_cells {:7d}:num_rna_mols'.format(np.max(rois), len(rna_molecules)))
 
 
     # Save summary image.
     save_summary_image(output_dir,
                        blue_average_im,
-                       green_average_im,
+               #       green_average_im,
+                       get_average_image_from_stack(green_stack_normalised),
+                       roi_input_im,
                        nuclei_coords,
                        mask_outline,
                        rna_molecules)
@@ -289,7 +319,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('input_dir')
     args = parser.parse_args()
-#   do_all(args.input_dir)
-    analyse_image(args.input_dir)
+#   analyse_image(args.input_dir)
+    do_all(args.input_dir)
 
 
