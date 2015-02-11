@@ -11,6 +11,7 @@ import re
 
 from libtiff import TIFF
 
+from PIL import Image
 import numpy as np
 from scipy import ndimage
 
@@ -28,6 +29,8 @@ from skimage.morphology import (
 
 
 import matplotlib.pyplot as plt
+
+from find_probes import generate_annotated_image
 
 INPUT_DIR = "/localscratch/olssont/flc_single_mol_analysis/"
 
@@ -142,15 +145,16 @@ def get_blobs(im_stack, sigma):
     return ndimage.filters.gaussian_laplace(im_stack, sigma)
 
 def save_summary_image(output_dir, blue_average_im, green_average_im,
-                       bg_average_im, nuclei_coords, mask_outline, rna_molecules):
+                       bg_average_im, nuclei_coords, mask_outline, annotated_im):
     """Save a summary image."""
 
     # Make sure that we are working with a clean slate.
-    fig = plt.figure()
+    fig = plt.figure(figsize=(12, 10))
 
     # Display the average blue channel.
-    plt.subplot('221')
+    ax = plt.subplot('221')
     plt.imshow(blue_average_im, cmap=plt.cm.gray)
+    ax.autoscale(False)
     plt.plot(nuclei_coords[:,1], nuclei_coords[:,0], 'r.')
     plt.title('Blue channel average z-stack projection.', fontsize=10)
 
@@ -167,16 +171,10 @@ def save_summary_image(output_dir, blue_average_im, green_average_im,
 
     # Display the RNA molecules identified.
     ax = plt.subplot('224')
-    plt.imshow(green_average_im, cmap=plt.cm.gray)
+    plt.imshow(annotated_im)
     plt.imshow(mask_outline, cmap=plt.cm.gray)
     ax.autoscale(False)
-    plt.plot(rna_molecules[:,1], rna_molecules[:,0],
-             marker='o',
-             markeredgecolor='red',
-             fillstyle='none',
-             linestyle='none',
-    )
-    plt.title('Number of RNA molecules: {}'.format(len(rna_molecules)), fontsize=10)
+
     plt.savefig(os.path.join(output_dir, 'summary.png'))
 
     # Close the figure.
@@ -279,32 +277,34 @@ def analyse_image(directory):
     mask_outline = get_mask_outline(rois)
 
     # Find fluorescent blobs.
-    green_stack = get_stack(green_fpaths)
-    green_stack_normalised = get_normalised_stack(green_stack)
-    green_blobs = get_blobs(green_stack_normalised, sigma=0)
-    green_blobs_in_cells = get_masked_stack(green_blobs, cell_mask)
-    _, rna_molecules = get_local_maxima(green_blobs_in_cells,
-                                     min_distance=5,
-                                     threshold_rel=0.7)
-    print('{:7d}:num_cells {:7d}:num_rna_mols'.format(np.max(rois), len(rna_molecules)))
+#   green_stack = get_stack(green_fpaths)
+#   green_stack_normalised = get_normalised_stack(green_stack)
+#   green_blobs = get_blobs(green_stack_normalised, sigma=0)
+#   green_blobs_in_cells = get_masked_stack(green_blobs, cell_mask)
+#   _, rna_molecules = get_local_maxima(green_blobs_in_cells,
+#                                    min_distance=5,
+#                                    threshold_rel=0.7)
+#   print('{:7d}:num_cells {:7d}:num_rna_mols'.format(np.max(rois), len(rna_molecules)))
+    print(directory)
+    generate_annotated_image(directory)
+    annotated_im = Image.open('annotated.png')
 
 
     # Save summary image.
     save_summary_image(output_dir,
                        blue_average_im,
-               #       green_average_im,
-                       get_average_image_from_stack(green_stack_normalised),
+                       green_average_im,
                        roi_input_im,
                        nuclei_coords,
                        mask_outline,
-                       rna_molecules)
+                       annotated_im)
 
-    # Save the augmented stack.
-    save_augmented_rna_stack(output_dir,
-                             green_stack,
-                             green_blobs,
-                             cell_mask,
-                             rna_molecules)
+#   # Save the augmented stack.
+#   save_augmented_rna_stack(output_dir,
+#                            green_stack,
+#                            green_blobs,
+#                            cell_mask,
+#                            rna_molecules)
 
 def do_all(input_dir):
     """Do analysis on all subdirs in an input directory."""
