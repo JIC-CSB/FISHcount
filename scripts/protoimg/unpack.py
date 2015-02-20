@@ -23,6 +23,18 @@ def parse_file_name(filename):
 
     return name.split('_')
 
+def unpack_many(image_dir, output_dir_root):
+    """Unpack multiple confocal images into a given directory, creating new
+    directories for each."""
+
+    image_files = os.listdir(image_dir)
+
+    for f in image_files:
+        name, ext = os.path.splitext(os.path.basename(f))
+        image_path = os.path.join(image_dir, f)
+        output_path = os.path.join(output_dir_root, name)
+        unpack(image_path, output_path)
+
 def unpack(image_file, output_dir, output_format='.tif'):
     """Use bioformats to unpack the given confocal image file into a series
     of 2D images, for each series, channel and plane in the file.
@@ -30,9 +42,12 @@ def unpack(image_file, output_dir, output_format='.tif'):
     Inputs:
 
     image_file - the confocal image file
-    output_dir - the directory in which output files will be created
+    output_dir - the directory in which output files will be created. This
+    directory will be created if it does not exist
     output_format - the format extension for output files
     """
+
+    mkdir_p(output_dir)
 
     basename = os.path.basename(image_file)
     name, ext = os.path.splitext(basename)
@@ -45,13 +60,6 @@ def unpack(image_file, output_dir, output_format='.tif'):
      
     subprocess.call(unpack_cmd)
 
-def setup_and_unpack(image_file, output_dir):
-    """Create the output directory if it does not exist, then unpack the
-    image file."""
-
-    mkdir_p(output_dir)
-    unpack(image_file, output_dir)
-
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
 
@@ -60,7 +68,8 @@ def main():
 
     args = parser.parse_args()
 
-    setup_and_unpack(args.image_file, args.data_root)
+    unpack(args.image_file, args.data_root)
+    #unpack_many(args.image_file, args.data_root)
 
 if __name__ == "__main__":
     main()
