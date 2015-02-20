@@ -1,0 +1,7 @@
+# Things to do
+
+* Add option to create intermediate processing stages or not
+* Directory to save processing stages
+* Output file name control
+* Operate on multiple channels
+* Specify nuclear channel on command line
