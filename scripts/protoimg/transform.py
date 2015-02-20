@@ -8,6 +8,28 @@ import numpy as np
 
 autosave=True
 
+def make_named_transform(name):
+    """Decorator function. Takes a function operating on a ndarray and returning
+    a ndarray and turns it into a function operating on an ImageArray and 
+    returning an ImageArray, with the given name parameter."""
+
+    def make_transform(func):
+
+        def func_as_transform(image, name=name, **kwargs):
+
+            image_array = image.image_array
+
+            ret_array = func(image_array, **kwargs)
+
+            ia = ImageArray(ret_array, name)
+            ia.history += [image.history]
+
+            return ia
+
+        return func_as_transform
+
+    return make_transform
+
 class ImageArray(object):
 
     def __init__(self, image_array, name=None):
@@ -95,25 +117,17 @@ def gaussian_filter(image, sigma=0.4, name='gaussian_filter'):
 
     return ia
 
-def find_edges(image, name='find_edges'):
 
-    edges = skimage.filter.sobel(image.image_array)
+@make_named_transform('find_edges')
+def find_edges(ndarray):
+    return skimage.filter.sobel(ndarray)
 
-    ia = ImageArray(edges, name)
-    ia.history = image.history + [name]
+@make_named_transform('thresh_otsu')
+def threshold_otsu(ndarray, mult=1):
 
-    return ia
+    otsu_value = skimage.filter.threshold_otsu(ndarray)
 
-def threshold_otsu(image, mult=1, name='thresh_otsu'):
-
-    otsu_value = skimage.filter.threshold_otsu(image.image_array)
-
-    thresh = image.image_array > mult * otsu_value
-
-    ia = ImageArray(thresh, name)
-    ia.history = image.history + [name]
-
-    return ia
+    return ndarray > mult * otsu_value
 
 def find_connected_components(image, neighbors=8, background=None, 
                               name='connected_components'):

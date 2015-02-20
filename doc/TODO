@@ -5,3 +5,4 @@
 * Output file name control
 * Operate on multiple channels
 * Specify nuclear channel on command line
+* Remove dependency on scipy

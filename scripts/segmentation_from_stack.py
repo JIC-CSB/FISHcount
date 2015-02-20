@@ -6,6 +6,7 @@ import argparse
 import protoimg
 from protoimg.stack import Stack, normalise_stack, equalize_stack
 from protoimg.transform import (
+    make_named_transform,
     ImageArray,
     dilate_simple,
     component_centroids,
@@ -37,13 +38,6 @@ from find_probe_locs import find_probe_locations
 def RGB_from_single_channel(array):
     return np.dstack(3 * [array])
 
-def component_find_centroid(connected_components, index):
-    loc = np.mean(np.where(connected_components.image_array == index), axis=1)
-
-    x, y = map(int, loc)
-
-    return x, y
-    
 def generate_segmentation_seeds(nuclear_stack):
     """Given the nuclear fluorescence channel, find markers representing the
     locations of those nuclei so that they can be used to seed a segmentation.
@@ -62,6 +56,33 @@ def generate_segmentation_seeds(nuclear_stack):
 
     return seeds
 
+
+@make_named_transform('filter_segmentation')
+def filter_segmentation(image_array, min_size=None):
+    """Filter the given segmentation, removing objects smaller than the minimum
+    size. If min_size is none, remove everything smaller than 10% of the mean
+    size."""
+
+    filtered_ia = np.copy(image_array)
+
+    background = 0
+
+    # Produce a dictionary of id : list of coordinates for each id representing
+    # a region in the image
+    by_coords = {index : zip(*np.where(image_array==index))
+                 for index in np.unique(image_array)}
+
+    if min_size is None:
+        mean_size = np.mean(map(len, by_coords.values()))
+        min_size = int(0.1 * mean_size)
+
+    for index, coords in by_coords.items():
+        if len(coords) < min_size:
+            filtered_ia[zip(*coords)] = background
+
+    return filtered_ia
+
+
 def find_segmented_regions(seeds, autof_stack):
 
     min_autof_proj = min_intensity_projection(autof_stack)
@@ -79,18 +100,21 @@ def find_segmented_regions(seeds, autof_stack):
     segmentation = watershed_with_seeds(smoothed_autof, seeds,
                                mask_image=thresh_autof)
 
-    return segmentation
+    # my_maker = make_named_transform('hughbert')
+    # my_filter = my_maker(filter_segmentation)
+    # filtered_segmentation = my_filter(segmentation)
+    filtered_segmentation = filter_segmentation(segmentation)
+
+    re_watershed = watershed_with_seeds(smoothed_autof, filtered_segmentation,
+                                mask_image=thresh_autof, name='re_watershed')
+
+    return re_watershed
     
 def segmentation_from_stacks(nuclear_stack, autof_stack):
     """Return the segmentation from the given stack."""
 
     seeds = generate_segmentation_seeds(nuclear_stack)
 
-    # Seed hacking
-    # next_seed = 1 + max(np.unique(seeds.image_array))
-    # seeds.image_array[136, 468] = next_seed
-    # seeds.image_array[430, 430] = 1 + next_seed
-    # seeds.image_array[500, 400] = 2 + next_seed
     scipy.misc.imsave('seeds.png', seeds.image_array)
 
     segmentation = find_segmented_regions(seeds, autof_stack)
@@ -116,74 +140,8 @@ def segmentation_border_image(segmentation, index, width=1):
 
     return border
 
-def text_at(image, text, ox, oy, colour):
-    fnt = Font('scripts/fonts/UbuntuMono-R.ttf', 24)
-
-    ftext = fnt.render_text(text)
-
-    for y in range(ftext.height):
-        for x in range(ftext.width):
-            if ftext.pixels[y * ftext.width + x]:
-                try:
-                    image[ox + y, oy + x] = colour
-                except IndexError:
-                    pass
-
-def component_find_centroid(connected_components, index):
-    loc = np.mean(np.where(connected_components.image_array == index), axis=1)
-
-    x, y = map(int, loc)
-
-    return x, y
-
-def generate_annotated_image(stack_path, segmentation):
-
-    stack = Stack.from_path(stack_path)
-    simple_proj = max_intensity_projection(stack, name='simple_proj')
-    norm_stack = normalise_stack(stack)
-
-    annot_proj = max_intensity_projection(norm_stack, name='annot_proj')
-
-    eqproj = equalize_adapthist(annot_proj.image_array)
-    scipy.misc.imsave('eqproj.png', eqproj)
-
-    zero_pad = np.zeros(eqproj.shape, eqproj.dtype)
-    red_image = np.dstack([eqproj, zero_pad, zero_pad])
-
-    scipy.misc.imsave('pretty_proj.png', red_image)
-
-    protoimg.autosave = False
-
-    white16 = 255 << 8, 255 << 8, 255 << 8
-    probe_locs = find_probe_locations(stack_path)
-    real_ids = set(np.unique(segmentation.image_array)) - set([0])
-    for index in real_ids:
-        border = segmentation_border_image(segmentation, index)
-        red_image[np.where(border == 255)] = 255 << 8, 255 << 8, 255 << 8
-        seg_area = set(zip(*np.where(segmentation.image_array == index)))
-        selected_probes = set(probe_locs) & seg_area
-        n_probes = len(selected_probes)
-        ox, oy = component_find_centroid(segmentation, index)
-        text_at(red_image, str(n_probes), ox, oy, white16)
-
-    # sel_array = np.zeros(segmentation.image_array.shape, dtype=np.uint8)
-    # for x, y in selected_probes:
-    #     sel_array[x, y] = 255
-    # scipy.misc.imsave('sel_array.png', sel_array)
-        
-
-    # for loc in probe_locs:
-    #     if loc in np.where
-
-    scipy.misc.imsave('proj_with_borders.png', red_image)
-
-
 def test_segmentation_from_stack(stack_path):
     segmentation = load_stack_and_segment(stack_path)
-
-    #generate_annotated_image(stack_path, segmentation)
-
-    #seg_edges = find_edges(segmentation, name='seg_edges')
 
 def main():
     parser = argparse.ArgumentParser(__doc__)
