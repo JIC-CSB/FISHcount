@@ -3,6 +3,7 @@ annotated with a cell segmentation and counts of detected RNA probes enumerated
 by region of the segmentation."""
 
 import argparse
+import os.path
 
 import scipy.misc
 import numpy as np
@@ -20,8 +21,10 @@ from protoimg.transform import (
     component_find_centroid
     )
 
+HERE = os.path.dirname(__file__)
+
 def text_at(image, text, ox, oy, colour):
-    fnt = Font('scripts/fonts/UbuntuMono-R.ttf', 24)
+    fnt = Font(os.path.join(HERE, 'fonts', 'UbuntuMono-R.ttf'), 24)
 
     ftext = fnt.render_text(text)
 
