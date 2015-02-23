@@ -20,10 +20,11 @@ Install Homebrew.
 ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
 ```
 
-Install freetype using Homebrew.
+Install freetype and libtiff using Homebrew.
 
 ```bash
 brew install freetype
+brew install libtiff
 ```
 
 Install ``virtualenv`` using ``easy_install`` (virtualenv allows you to create
@@ -43,9 +44,12 @@ Install Python dependencies into the virtual environment.
 
 ```bash
 pip install numpy
-pip install scikit-image
+pip install pillow
 pip install scipy
+pip install six
+pip install scikit-image
 pip install freetype-py
+pip install libtiff
 ```
 
 ### Install BioFormats ``bftools``
