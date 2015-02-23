@@ -1,5 +1,4 @@
-"""Read directory with LIF files, create appropriate directory structure in 
-which to unpack and do so"""
+"""Read directory with LIF files, create output directory structure and unpack."""
 
 import os
 import errno
@@ -7,7 +6,8 @@ import shutil
 import argparse
 import subprocess
 
-BFCONVERT = '/common/tools/bftools/bfconvert'
+# Assume the bfconvert tool is in the $PATH environment variable.
+BFCONVERT = 'bfconvert'
 
 def mkdir_p(path):
     try:
@@ -63,13 +63,14 @@ def unpack(image_file, output_dir, output_format='.tif'):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
 
-    parser.add_argument('image_file', help="Path to file containing microscope image")
+#   parser.add_argument('image_file', help="Path to file containing microscope image")
+    parser.add_argument('image_dir', help="Path to directory containing microscope images")
     parser.add_argument('data_root', help="Path to root directory to contain unpacked data")
 
     args = parser.parse_args()
 
-    unpack(args.image_file, args.data_root)
-    #unpack_many(args.image_file, args.data_root)
+#   unpack(args.image_file, args.data_root)
+    unpack_many(args.image_dir, args.data_root)
 
 if __name__ == "__main__":
     main()

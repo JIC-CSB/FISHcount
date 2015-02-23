@@ -78,3 +78,23 @@ Add the ``bftools`` directory to your ``$PATH`` environment variable.
 ```bash
 export PATH=$PATH:~/tools/bftools
 ```
+
+## Image analysis
+
+### Convert microscopy images to tiff files
+
+Make sure that the ``bftools`` directory is in your path.
+
+```bash
+export PATH=$PATH:~/tools/bftools
+```
+
+Run the ``unpack.py`` script.
+
+```bash
+python scripts/protoimg/unpack.py lif_input_dir tiff_output_dir
+```
+
+Where ``lif_input_dir`` is the directory with the original lif files and
+``tiff_output_dir`` is the directory to where the tiff files will be written.
+
