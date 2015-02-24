@@ -47,7 +47,7 @@ def segmentation_border_image(segmentation, index, width=1):
 
     return border
 
-def generate_annotated_image(segmentation, probe_locs, stack_path):
+def generate_annotated_image(segmentation, probe_locs, stack_path, imsave):
 
     stack = Stack.from_path(stack_path)
     norm_stack = normalise_stack(stack)
@@ -59,7 +59,8 @@ def generate_annotated_image(segmentation, probe_locs, stack_path):
     zero_pad = np.zeros(eqproj.shape, eqproj.dtype)
     red_image = np.dstack([eqproj, zero_pad, zero_pad])
 
-    scipy.misc.imsave('pretty_proj.png', red_image)
+    if imsave:
+        imsave('pretty_proj.png', red_image)
 
     white16 = 255 << 8, 255 << 8, 255 << 8
     real_ids = set(np.unique(segmentation.image_array)) - set([0])
@@ -72,20 +73,21 @@ def generate_annotated_image(segmentation, probe_locs, stack_path):
         ox, oy = component_find_centroid(segmentation, index)
         text_at(red_image, str(n_probes), ox, oy, white16)
 
-    scipy.misc.imsave('annotated_projection.png', red_image)
+    if imsave:
+        imsave('annotated_projection.png', red_image)
 
-def segment_count_annotate(stack_path):
-    segmentation = load_stack_and_segment(stack_path)
-    probe_locs = find_probe_locations(stack_path)
+def segment_count_annotate(stack_path, imsave):
+    segmentation = load_stack_and_segment(stack_path, imsave)
+    probe_locs = find_probe_locations(stack_path, imsave)
 
-    generate_annotated_image(segmentation, probe_locs, stack_path)
+    generate_annotated_image(segmentation, probe_locs, stack_path, imsave)
 
 def main():
     parser = argparse.ArgumentParser(__doc__)
     parser.add_argument('stack_path', help="Path to stack files.")
     args = parser.parse_args()
 
-    segment_count_annotate(args.stack_path)
+    segment_count_annotate(args.stack_path, imsave=scipy.misc.imsave)
 
 if __name__ == "__main__":
     main()

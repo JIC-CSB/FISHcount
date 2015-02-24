@@ -46,23 +46,23 @@ def make_stage1_template():
 
     return template
 
-def find_best_template(edges):
+def find_best_template(edges, imsave):
     """Find the best exemplar of a probe in the image. We use template matching
     with a hollow disk (annulus), and return the best match in the image."""
 
     template = make_stage1_template()
     stage1_match = match_template(edges.image_array, template, pad_input=True)
-    scipy.misc.imsave('stage1_match.png', stage1_match)
+    imsave('stage1_match.png', stage1_match)
     cmax = np.max(stage1_match)
     px, py = zip(*np.where(stage1_match == cmax))[0]
 
     tr = 4
     better_template = edges.image_array[px-tr:px+tr,py-tr:py+tr]
-    scipy.misc.imsave('better_template.png', better_template)
+    imsave('better_template.png', better_template)
 
     return better_template
 
-def generate_probe_loc_image(norm_projection, probe_locs):
+def generate_probe_loc_image(norm_projection, probe_locs, imsave):
     """Generate an annotated image showing the probe locations as crosses."""
 
     probe_loc_image = grayscale_to_rgb(norm_projection.image_array)
@@ -71,9 +71,9 @@ def generate_probe_loc_image(norm_projection, probe_locs):
         c = random_rgb()
         draw_cross(probe_loc_image, x, y, c)
     
-    scipy.misc.imsave('probe_locations.png', probe_loc_image)
+    imsave('probe_locations.png', probe_loc_image)
 
-def find_probe_locations(stack_dir):
+def find_probe_locations(stack_dir, imsave):
     """Find probe locations. Given a path, we construct a z stack from the first
     channel of the images in that path, and then find probes within that stack.
     Returns a list of coordinate pairs, representing x, y locations of probes.
@@ -90,10 +90,10 @@ def find_probe_locations(stack_dir):
     edges = find_edges(norm_projection)
 
     # Find a suitable template image for matching
-    template = find_best_template(edges)
+    template = find_best_template(edges, imsave)
 
     match_result = match_template(edges.image_array, template, pad_input=True)
-    scipy.misc.imsave('stage2_match.png', match_result)
+    imsave('stage2_match.png', match_result)
 
     # Set a threshold for matched locations
 
@@ -106,7 +106,7 @@ def find_probe_locations(stack_dir):
     locs = np.where(match_result > match_thresh)
     annotated_edges = grayscale_to_rgb(edges.image_array)
     annotated_edges[locs] = edges.image_array.max(), 0, 0
-    scipy.misc.imsave('annotated_edges.png', annotated_edges)
+    imsave('annotated_edges.png', annotated_edges)
 
     # Find the centroids of the locations where we think there's a probe
     cloc_array = match_result > match_thresh
@@ -115,11 +115,11 @@ def find_probe_locations(stack_dir):
     centroids = component_centroids(connected_components)
     probe_locs = zip(*np.where(centroids.image_array != 0))
 
-    generate_probe_loc_image(norm_projection, probe_locs)
+    generate_probe_loc_image(norm_projection, probe_locs, imsave)
 
     return probe_locs
 
-def hough_stuff():
+def hough_stuff(imsave):
     """Deprecated. Template matching works better."""
     thresh = threshold_otsu(edges, mult=1.5)
 
@@ -128,7 +128,7 @@ def hough_stuff():
     hough_data = hough_res[0] + hough_res[1]
     #loc_array = peak_local_max(hough_data, min_distance=5, threshold_rel=0.5)
     cloc_array = peak_local_max(hough_data, min_distance=5, threshold_rel=0.5, indices=False)
-    scipy.misc.imsave('cloc.png', cloc_array)
+    imsave('cloc.png', cloc_array)
     connected_components, n_cc = skimage.measure.label(cloc_array, neighbors=8, return_num=True)
 
     labels = np.unique(connected_components)
@@ -153,7 +153,7 @@ def hough_stuff():
         c = random_rgb()
         draw_cross(x, y, c)
     
-    scipy.misc.imsave('probe_locations.png', annot)
+    imsave('probe_locations.png', annot)
     #print '\n'.join(thresh.history)
 
     return probe_locs
@@ -163,7 +163,7 @@ def main():
     parser.add_argument('stack_dir', help='Directory containing individual 2D image files')
     args = parser.parse_args()
 
-    find_probe_locations(args.stack_dir)
+    find_probe_locations(args.stack_dir, imsave=scipy.misc.imsave)
 
 if __name__ == "__main__":
     main()

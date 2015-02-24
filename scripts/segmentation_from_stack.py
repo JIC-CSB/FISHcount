@@ -83,7 +83,7 @@ def filter_segmentation(image_array, min_size=None):
     return filtered_ia
 
 
-def find_segmented_regions(seeds, autof_stack):
+def find_segmented_regions(seeds, autof_stack, imsave):
 
     min_autof_proj = min_intensity_projection(autof_stack)
     equal_autof = equalize_adaptive(min_autof_proj, 'equal_autof')
@@ -92,9 +92,9 @@ def find_segmented_regions(seeds, autof_stack):
     thresh_autof = threshold_otsu(smoothed_autof, mult=0.6, name='thresh_autof')
 
     # ndfeed = skimage.img_as_uint(edge_autof.image_array & thresh_autof)
-    # scipy.misc.imsave('ndfeed.png', ndfeed)
+    # imsave('ndfeed.png', ndfeed)
     # altseg = watershed_ift(ndfeed, seeds.image_array)
-    # scipy.misc.imsave('altseg.png', altseg)
+    # imsave('altseg.png', altseg)
 
     #segmentation = watershed_with_seeds(smoothed_autof, ImageArray(altseg, 'atseg'),
     segmentation = watershed_with_seeds(smoothed_autof, seeds,
@@ -110,24 +110,24 @@ def find_segmented_regions(seeds, autof_stack):
 
     return re_watershed
     
-def segmentation_from_stacks(nuclear_stack, autof_stack):
+def segmentation_from_stacks(nuclear_stack, autof_stack, imsave):
     """Return the segmentation from the given stack."""
 
     seeds = generate_segmentation_seeds(nuclear_stack)
 
-    scipy.misc.imsave('seeds.png', seeds.image_array)
+    imsave('seeds.png', seeds.image_array)
 
-    segmentation = find_segmented_regions(seeds, autof_stack)
+    segmentation = find_segmented_regions(seeds, autof_stack, imsave)
 
     return segmentation
 
-def load_stack_and_segment(path):
+def load_stack_and_segment(path, imsave):
     """Load a stack from the given path and segment it."""
 
     autof_stack = Stack.from_path(path, channel=2)
     nuclear_stack = Stack.from_path(path, channel=2)
 
-    return segmentation_from_stacks(nuclear_stack, autof_stack)
+    return segmentation_from_stacks(nuclear_stack, autof_stack, imsave)
 
 def segmentation_border_image(segmentation, index, width=1):
 
@@ -140,15 +140,15 @@ def segmentation_border_image(segmentation, index, width=1):
 
     return border
 
-def test_segmentation_from_stack(stack_path):
-    segmentation = load_stack_and_segment(stack_path)
+def test_segmentation_from_stack(stack_path, imsave):
+    segmentation = load_stack_and_segment(stack_path, imsave)
 
 def main():
     parser = argparse.ArgumentParser(__doc__)
     parser.add_argument('stack_path', help="Path to stack files.")
     args = parser.parse_args()
 
-    test_segmentation_from_stack(args.stack_path)
+    test_segmentation_from_stack(args.stack_path, imsave=scipy.misc.imsave)
 
 if __name__ == "__main__":
     main()
