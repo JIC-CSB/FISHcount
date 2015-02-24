@@ -116,3 +116,5 @@ directory to store any generated images.
 ```bash
 python ./scripts/count_probes.py tiff_output_dir/image_of_interest_dir output_dir
 ```
+
+Note that the file of most interest is ``output_dir/annotated_projection.png``.
