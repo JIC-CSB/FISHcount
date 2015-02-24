@@ -102,3 +102,17 @@ python scripts/protoimg/unpack.py lif_input_dir tiff_output_dir
 Where ``lif_input_dir`` is the directory with the original lif files and
 ``tiff_output_dir`` is the directory to where the tiff files will be written.
 
+### Do the image analysis
+
+Make sure that the Python virtual environment has been sourced.
+
+```bash
+. ./env/bin/activate
+```
+
+Run the analysis on the image directory of interest and specify an output
+directory to store any generated images.
+
+```bash
+python ./scripts/count_probes.py tiff_output_dir/image_of_interest_dir output_dir
+```

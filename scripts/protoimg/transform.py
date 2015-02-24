@@ -6,7 +6,8 @@ from skimage.exposure import equalize_adapthist
 import scipy.misc
 import numpy as np
 
-autosave=True
+autosave = True
+imsave = scipy.misc.imsave
 
 def make_named_transform(name):
     """Decorator function. Takes a function operating on a ndarray and returning
@@ -48,7 +49,7 @@ class ImageArray(object):
             else:
                 filename = self.name + '.png'
 
-        scipy.misc.imsave(filename, self.image_array)
+        imsave(filename, self.image_array)
 
 def projection_by_function(sa, z_function):
     """Generate a projection by applying the given function to each line of

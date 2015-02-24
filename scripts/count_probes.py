@@ -54,7 +54,7 @@ def generate_annotated_image(segmentation, probe_locs, stack_path, imsave):
     annot_proj = max_intensity_projection(norm_stack, name='annot_proj')
 
     eqproj = equalize_adapthist(annot_proj.image_array)
-    scipy.misc.imsave('eqproj.png', eqproj)
+    imsave('eqproj.png', eqproj)
 
     zero_pad = np.zeros(eqproj.shape, eqproj.dtype)
     red_image = np.dstack([eqproj, zero_pad, zero_pad])
@@ -85,9 +85,20 @@ def segment_count_annotate(stack_path, imsave):
 def main():
     parser = argparse.ArgumentParser(__doc__)
     parser.add_argument('stack_path', help="Path to stack files.")
+    parser.add_argument('output_dir', help="Path to output directory.")
     args = parser.parse_args()
 
-    segment_count_annotate(args.stack_path, imsave=scipy.misc.imsave)
+    if not os.path.isdir(args.output_dir):
+        os.mkdir(args.output_dir)
+
+    def imsave_with_outdir(fname, im):
+        """Save images to the specified output directory."""
+        fpath = os.path.join(args.output_dir, fname)
+        scipy.misc.imsave(fpath, im)
+
+    from protoimg import transform
+    transform.imsave = imsave_with_outdir
+    segment_count_annotate(args.stack_path, imsave=imsave_with_outdir)
 
 if __name__ == "__main__":
     main()
