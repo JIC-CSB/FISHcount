@@ -73,13 +73,13 @@ def generate_probe_loc_image(norm_projection, probe_locs, imsave):
     
     imsave('probe_locations.png', probe_loc_image)
 
-def find_probe_locations(stack_dir, imsave):
+def find_probe_locations(stack_dir, imsave, pchannel):
     """Find probe locations. Given a path, we construct a z stack from the first
     channel of the images in that path, and then find probes within that stack.
     Returns a list of coordinate pairs, representing x, y locations of probes.
     """
 
-    zstack = Stack.from_path(stack_dir)
+    zstack = Stack.from_path(stack_dir, channel=pchannel)
     # For comparative purposes (so we save the image)
     projection = max_intensity_projection(zstack)
     # Normalise each image in the stack

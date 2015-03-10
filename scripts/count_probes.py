@@ -47,9 +47,9 @@ def segmentation_border_image(segmentation, index, width=1):
 
     return border
 
-def generate_annotated_image(segmentation, probe_locs, stack_path, imsave):
+def generate_annotated_image(segmentation, probe_locs, stack_path, imsave, pchannel):
 
-    stack = Stack.from_path(stack_path)
+    stack = Stack.from_path(stack_path, channel=pchannel)
     norm_stack = normalise_stack(stack)
     annot_proj = max_intensity_projection(norm_stack, name='annot_proj')
 
@@ -76,17 +76,24 @@ def generate_annotated_image(segmentation, probe_locs, stack_path, imsave):
     if imsave:
         imsave('annotated_projection.png', red_image)
 
-def segment_count_annotate(stack_path, imsave):
+def segment_count_annotate(stack_path, imsave, pchannel):
     segmentation = load_stack_and_segment(stack_path, imsave)
-    probe_locs = find_probe_locations(stack_path, imsave)
+    probe_locs = find_probe_locations(stack_path, imsave, pchannel)
 
-    generate_annotated_image(segmentation, probe_locs, stack_path, imsave)
+    generate_annotated_image(segmentation, probe_locs, stack_path, imsave,
+        pchannel)
 
 def main():
     parser = argparse.ArgumentParser(__doc__)
     parser.add_argument('stack_path', help="Path to stack files.")
     parser.add_argument('output_dir', help="Path to output directory.")
+    parser.add_argument('-p', '--probe_channel',
+        default=1, type=int, help="Probe channel (default 1)")
     args = parser.parse_args()
+
+    if args.probe_channel == 0:
+        parser.error('Probe channel index is one-based; index zero is invalid.')
+    pchannel = args.probe_channel - 1  # Make the index zero-based.
 
     if not os.path.isdir(args.output_dir):
         os.mkdir(args.output_dir)
@@ -98,7 +105,8 @@ def main():
 
     from protoimg import transform
     transform.imsave = imsave_with_outdir
-    segment_count_annotate(args.stack_path, imsave=imsave_with_outdir)
+    segment_count_annotate(args.stack_path,
+        imsave=imsave_with_outdir, pchannel=pchannel)
 
 if __name__ == "__main__":
     main()
