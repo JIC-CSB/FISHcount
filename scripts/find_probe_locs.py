@@ -161,7 +161,16 @@ def hough_stuff(imsave):
 def main():
     parser = argparse.ArgumentParser(__doc__)
     parser.add_argument('stack_dir', help='Directory containing individual 2D image files')
+    parser.add_argument('output_dir', help='Path to output directory.')
+    parser.add_argument('-p', '--probe_channel',
+            default=1, type=int, help='Probe channel (default 1)')
     args = parser.parse_args()
+
+    if args.probe_channel == 0:
+        parser.error('Probe channel index is one-based; index zero is invalid.')
+    pchannel = args.probe_channel - 1
+
+    safe_mkdir(args.output_dir)
 
     find_probe_locations(args.stack_dir, imsave=scipy.misc.imsave)
 

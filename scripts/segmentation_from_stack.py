@@ -4,7 +4,8 @@ cellular background autofluorescence to represent the cell."""
 import argparse
 
 import protoimg
-from protoimg.stack import Stack, normalise_stack, equalize_stack
+from protoimg.stack import Stack, equalize_stack
+from protoimg2.transform import normalise_stack
 from protoimg.transform import (
     make_named_transform,
     ImageArray,
