@@ -76,6 +76,8 @@ def projection_by_function(sa, z_function):
 
     return projection
 
+@transformation
+@uint8ify
 def min_intensity_projection(stack, name='min_projection'):
     """Return minimum intensity projection for stack."""
 
@@ -148,8 +150,8 @@ def component_find_centroid(connected_components, index):
 
     return x, y
 
-@transformation
-@uint8ify
+#@transformation
+# FIXME - Make into a transformation
 def component_centroids(connected_components):
     """Given a set of connected components as an image where the pixel value
     representst the component ID, reduce each component to its centroid."""
@@ -163,8 +165,8 @@ def component_centroids(connected_components):
 
     return component_centroids
 
-@transformation
-@uint8ify
+# FIXME - this would be nice as a transformation, but we have to handle saving
+#@transformation
 def find_connected_components(image, neighbors=8, background=None):
     """Find connected components in the given image, returning an image labelled
     with the component ids. Because background components end up labelled -1, we
