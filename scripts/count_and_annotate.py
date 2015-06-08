@@ -12,8 +12,10 @@ from jicimagelib.image import DataManager, Image
 from jicimagelib.transform import transformation
 
 import scipy.misc
-from skimage.morphology import disk
+from skimage.morphology import disk, erosion
 from skimage.feature import match_template
+
+from fonty import Glyph, Font, Bitmap
 
 from protoimg2.transform import (
     max_intensity_projection, 
@@ -27,13 +29,30 @@ from protoimg2.transform import (
     find_connected_components,
     component_centroids,
     watershed_with_seeds,
-    filter_segmentation
+    filter_segmentation,
+    component_find_centroid
+)
+
+from protoimg2.annotate import (
 )
 
 #from segmentation_from_stack import segmentation_from_stacks
 
 HERE = os.path.dirname(__file__)
 UNPACK = os.path.join(HERE, '..', 'data', 'jic_backend')
+
+def text_at(image, text, ox, oy, colour):
+    fnt = Font(os.path.join(HERE, 'fonts', 'UbuntuMono-R.ttf'), 24)
+
+    ftext = fnt.render_text(text)
+
+    for y in range(ftext.height):
+        for x in range(ftext.width):
+            if ftext.pixels[y * ftext.width + x]:
+                try:
+                    image[ox + y, oy + x] = colour
+                except IndexError:
+                    pass
 
 def draw_cross(annot, x, y, c):
     """Draw a cross centered at x, y on the given array. c is the colour
@@ -186,12 +205,23 @@ def find_probe_locations(raw_z_stack):
 
     return probe_locs
 
+def segmentation_border_image(segmentation, index, width=1):
+
+    isolated_region = np.zeros(segmentation.shape, dtype=np.uint8)
+
+    isolated_region[np.where(segmentation == index)] = 255
+
+    selem = disk(width)
+    border = isolated_region - erosion(isolated_region, selem)
+
+    return border
+
 def generate_annotated_image(segmentation, probe_locs, stack, imsave):
 
     norm_stack = normalise_stack(stack)
     annot_proj = max_intensity_projection(norm_stack, name='annot_proj')
 
-    eqproj = equalize_adapthist(annot_proj)
+    eqproj = equalize_adaptive(annot_proj)
     imsave('eqproj.png', eqproj)
 
     zero_pad = np.zeros(eqproj.shape, eqproj.dtype)
@@ -201,28 +231,35 @@ def generate_annotated_image(segmentation, probe_locs, stack, imsave):
         imsave('pretty_proj.png', red_image)
 
     white16 = 255 << 8, 255 << 8, 255 << 8
+    white8 = 255, 255, 255
     real_ids = set(np.unique(segmentation)) - set([0])
+
     for index in real_ids:
         border = segmentation_border_image(segmentation, index)
-        red_image[np.where(border == 255)] = 255 << 8, 255 << 8, 255 << 8
-        seg_area = set(zip(*np.where(segmentation.image_array == index)))
+        red_image[np.where(border == 255)] = white8
+        seg_area = set(zip(*np.where(segmentation == index)))
         selected_probes = set(probe_locs) & seg_area
         n_probes = len(selected_probes)
         ox, oy = component_find_centroid(segmentation, index)
-        text_at(red_image, str(n_probes), ox, oy, white16)
+        pixel_area = len(seg_area)
+        text_at(red_image, str(n_probes), ox, oy, white8)
+        text_at(red_image, str(pixel_area), ox+30, oy-20, white8)
 
     if imsave:
         imsave('annotated_projection.png', red_image)
 
-def count_and_annotate(confocal_image, imsave):
+def count_and_annotate(confocal_image, pchannel, imsave):
+    """Find probe locations, segment the image and produce an annotated image
+    showing probe counts per identified cell."""
 
     image_collection = unpack_data(confocal_image)
 
     segmentation = segment_image(image_collection)
 
-    # FIXME - set channel
-    probe_stack = image_collection.zstack_array(c=0)
+    probe_stack = image_collection.zstack_array(c=pchannel)
     probe_locations = find_probe_locations(probe_stack)
+
+    generate_annotated_image(segmentation, probe_locations, probe_stack, imsave)
 
 def main():
     parser = argparse.ArgumentParser(__doc__)
@@ -243,7 +280,7 @@ def main():
         fpath = os.path.join(args.output_dir, fname)
         scipy.misc.imsave(fpath, im)
 
-    count_and_annotate(args.confocal_image, imsave_with_outdir)
+    count_and_annotate(args.confocal_image, pchannel, imsave_with_outdir)
 
 if __name__ == "__main__":
     main()
