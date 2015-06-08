@@ -15,7 +15,7 @@ import scipy.misc
 from skimage.morphology import disk, erosion
 from skimage.feature import match_template
 
-from fonty import Glyph, Font, Bitmap
+
 
 from protoimg2.transform import (
     max_intensity_projection, 
@@ -34,6 +34,9 @@ from protoimg2.transform import (
 )
 
 from protoimg2.annotate import (
+    text_at,
+    draw_cross,
+    random_rgb
 )
 
 #from segmentation_from_stack import segmentation_from_stacks
@@ -41,40 +44,6 @@ from protoimg2.annotate import (
 HERE = os.path.dirname(__file__)
 UNPACK = os.path.join(HERE, '..', 'data', 'jic_backend')
 
-def text_at(image, text, ox, oy, colour):
-    fnt = Font(os.path.join(HERE, 'fonts', 'UbuntuMono-R.ttf'), 24)
-
-    ftext = fnt.render_text(text)
-
-    for y in range(ftext.height):
-        for x in range(ftext.width):
-            if ftext.pixels[y * ftext.width + x]:
-                try:
-                    image[ox + y, oy + x] = colour
-                except IndexError:
-                    pass
-
-def draw_cross(annot, x, y, c):
-    """Draw a cross centered at x, y on the given array. c is the colour
-    which should be a single value for grayscale images or an array for colour
-    images."""
-
-    try:
-        for xo in np.arange(-4, 5, 1):
-            annot[x+xo, y] = c
-        for yo in np.arange(-4, 5, 1):
-            annot[x,y+yo] = c
-    except IndexError:
-        pass
-
-def random_rgb():
-    c1 = random.randint(127, 255) 
-    c2 = random.randint(0, 127) 
-    c3 = random.randint(0, 255) 
-
-    #l = [c1, c2, c3]
-
-    return tuple(random.sample([c1, c2, c3], 3))
 
 def grayscale_to_rgb(image_array):
     """Given a grayscale image array, return a colour version, setting each of
@@ -216,9 +185,9 @@ def segmentation_border_image(segmentation, index, width=1):
 
     return border
 
-def generate_annotated_image(segmentation, probe_locs, stack, imsave):
+def generate_annotated_image(segmentation, probe_loc_sets, stacks, imsave):
 
-    norm_stack = normalise_stack(stack)
+    norm_stack = normalise_stack(stacks[0])
     annot_proj = max_intensity_projection(norm_stack, name='annot_proj')
 
     eqproj = equalize_adaptive(annot_proj)
@@ -238,40 +207,75 @@ def generate_annotated_image(segmentation, probe_locs, stack, imsave):
         border = segmentation_border_image(segmentation, index)
         red_image[np.where(border == 255)] = white8
         seg_area = set(zip(*np.where(segmentation == index)))
-        selected_probes = set(probe_locs) & seg_area
-        n_probes = len(selected_probes)
+
+        probe_counts = []
+        for probe_locs in probe_loc_sets:
+            selected_probes = set(probe_locs) & seg_area
+            n_probes = len(selected_probes)
+            probe_counts.append(n_probes)
+
         ox, oy = component_find_centroid(segmentation, index)
         pixel_area = len(seg_area)
-        text_at(red_image, str(n_probes), ox, oy, white8)
+
+        probe_count_string = '/'.join(str(pc) for pc in probe_counts)
+        text_at(red_image, probe_count_string, ox, oy, white8)
+
         text_at(red_image, str(pixel_area), ox+30, oy-20, white8)
 
     if imsave:
         imsave('annotated_projection.png', red_image)
 
-def count_and_annotate(confocal_image, pchannel, imsave):
+def count_and_annotate(confocal_image, pchannels, imsave):
     """Find probe locations, segment the image and produce an annotated image
-    showing probe counts per identified cell."""
+    showing probe counts per identified cell. Probe locations are found for
+    each channel in the list pchannnels."""
 
     image_collection = unpack_data(confocal_image)
 
     segmentation = segment_image(image_collection)
 
-    probe_stack = image_collection.zstack_array(c=pchannel)
-    probe_locations = find_probe_locations(probe_stack)
+    probe_stacks = [image_collection.zstack_array(c=pc) for pc in pchannels]
+    probe_location_sets = [find_probe_locations(ps) for ps in probe_stacks]
 
-    generate_annotated_image(segmentation, probe_locations, probe_stack, imsave)
+    generate_annotated_image(segmentation, probe_location_sets, 
+                             probe_stacks, imsave)
+
+def parse_probe_channels(probe_channels_as_string):
+    """Parse the command line input to specify which probe channels should be
+    analysed."""
+
+    probe_channel_list = probe_channels_as_string.split(',')
+
+    probe_channel_int_list = map(int, probe_channel_list)
+
+    def subtract1(input_int):
+        return input_int - 1
+
+    return map(subtract1, probe_channel_int_list)
+
+def test_parse_probe_channels():
+
+    example_input = "1,2"
+    parsed_input = parse_probe_channels(example_input)
+    assert(parsed_input == [0, 1])
+
+    example_input = "1"
+    parsed_input = parse_probe_channels(example_input)
+    assert(parsed_input == [0])
 
 def main():
+    
     parser = argparse.ArgumentParser(__doc__)
     parser.add_argument('confocal_image', help='Confocal image to analyse')
     parser.add_argument('output_dir', help='Path to output directory.')
-    parser.add_argument('-p', '--probe_channel',
-            default=1, type=int, help='Probe channel (default 1)')
+    parser.add_argument('-p', '--probe_channels',
+            default='1', help='Probe channels, comma separated (default 1)')
     args = parser.parse_args()
 
-    if args.probe_channel == 0:
+    pchannels = parse_probe_channels(args.probe_channels)
+
+    if any(c<0 for c in pchannels):
         parser.error('Probe channel index is one-based; index zero is invalid.')
-    pchannel = args.probe_channel - 1
 
     safe_mkdir(args.output_dir)
 
@@ -280,7 +284,7 @@ def main():
         fpath = os.path.join(args.output_dir, fname)
         scipy.misc.imsave(fpath, im)
 
-    count_and_annotate(args.confocal_image, pchannel, imsave_with_outdir)
+    count_and_annotate(args.confocal_image, pchannels, imsave_with_outdir)
 
 if __name__ == "__main__":
     main()
