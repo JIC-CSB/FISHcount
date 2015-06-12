@@ -20,7 +20,8 @@ from skimage.feature import match_template
 from protoimg2.transform import (
     max_intensity_projection, 
     min_intensity_projection,
-    normalise_stack,
+    scale_median_stack,
+    convert_to_uint8,
     equalize_adaptive,
     gaussian_filter,
     find_edges,
@@ -76,9 +77,10 @@ def unpack_data(confocal_file):
 def generate_segmentation_seeds(raw_z_stack):
     """Generate the seeds for segmentation from the z stack."""
 
-    normed_stack = normalise_stack(raw_z_stack)
+    normed_stack = scale_median_stack(raw_z_stack)
     max_projection = max_intensity_projection(normed_stack)
-    eq_proj = equalize_adaptive(max_projection, n_tiles=16)
+    compressed = convert_to_uint8(max_projection)
+    eq_proj = equalize_adaptive(compressed, n_tiles=16)
     gauss = gaussian_filter(eq_proj, sigma=3)
     edges = find_edges(gauss)
     thresh = threshold_otsu(edges, mult=1)
@@ -97,7 +99,8 @@ def segment_image(image_collection):
     # FIXME - this isn't actually the probe stack!
     probe_stack = image_collection.zstack_array(c=2)
     min_autof_proj = min_intensity_projection(probe_stack)
-    equal_autof = equalize_adaptive(min_autof_proj)
+    compressed = convert_to_uint8(min_autof_proj)
+    equal_autof = equalize_adaptive(compressed)
     smoothed_autof = gaussian_filter(equal_autof, sigma=5)
     edge_autof = find_edges(smoothed_autof)
     thresh_autof = threshold_otsu(smoothed_autof, mult=0.6)
@@ -149,7 +152,7 @@ def generate_probe_loc_image(norm_projection, probe_locs, imsave):
 
 def find_probe_locations(raw_z_stack):
 
-    normed_stack = normalise_stack(raw_z_stack)
+    normed_stack = scale_median_stack(raw_z_stack)
     norm_projection = max_intensity_projection(normed_stack)
     edges = find_edges(norm_projection)
     exemplar = find_best_template(edges)
@@ -187,14 +190,16 @@ def segmentation_border_image(segmentation, index, width=1):
 
 def generate_annotated_image(segmentation, probe_loc_sets, stacks, imsave):
 
-    norm_stack = normalise_stack(stacks[0])
+    norm_stack = scale_median_stack(stacks[0])
     annot_proj = max_intensity_projection(norm_stack, name='annot_proj')
 
-    eqproj = equalize_adaptive(annot_proj)
-    imsave('eqproj.png', eqproj)
+    compressed = convert_to_uint8( annot_proj)
+    eqproj = equalize_adaptive(compressed)
+    eqproj_uint8 = convert_to_uint8(eqproj)
+    imsave('eqproj.png', eqproj_uint8)
 
-    zero_pad = np.zeros(eqproj.shape, eqproj.dtype)
-    red_image = np.dstack([eqproj, zero_pad, zero_pad])
+    zero_pad = np.zeros(eqproj_uint8.shape, eqproj_uint8.dtype)
+    red_image = np.dstack([eqproj_uint8, zero_pad, zero_pad])
 
     if imsave:
         imsave('pretty_proj.png', red_image)

@@ -4,6 +4,7 @@ import numpy as np
 import scipy.misc
 
 from jicimagelib.transform import transformation
+from jicimagelib.util.array import normalise
 
 from skimage.exposure import equalize_adapthist
 from skimage.morphology import watershed
@@ -46,7 +47,6 @@ def uint8ify(transform_func):
     return converted_transform
 
 @transformation
-@uint8ify
 def max_intensity_projection(stack, name='projection'):
     """Return max intensity projection for stack."""
 
@@ -77,7 +77,6 @@ def projection_by_function(sa, z_function):
     return projection
 
 @transformation
-@uint8ify
 def min_intensity_projection(stack, name='min_projection'):
     """Return minimum intensity projection for stack."""
 
@@ -85,25 +84,24 @@ def min_intensity_projection(stack, name='min_projection'):
 
     return min_proj
 
-def normalise2D(input_image):
+def scale_median(input_image):
     """Normalise a single channel 8 bit image (as numpy array)."""
 
     norm_factor = 10. / np.median(input_image)
 
     return input_image * norm_factor
 
-def normalise_stack(stack):
+def scale_median_stack(stack):
     """Normalise and return stack."""
     
     _, _, zdim = stack.shape
 
-    stack_array = np.dstack([normalise2D(stack[:,:,n])
+    stack_array = np.dstack([scale_median(stack[:,:,n])
                                for n in range(zdim)])
 
     return stack_array
 
 @transformation
-@uint8ify
 def equalize_adaptive(image, n_tiles=8, clip_limit=0.01):
     
     eqproj = equalize_adapthist(image,
@@ -114,7 +112,6 @@ def equalize_adaptive(image, n_tiles=8, clip_limit=0.01):
     return eqproj
 
 @transformation
-@uint8ify
 def gaussian_filter(image, sigma=0.4):
 
     gauss = skimage.filters.gaussian_filter(image, sigma=sigma)
@@ -122,12 +119,10 @@ def gaussian_filter(image, sigma=0.4):
     return gauss
 
 @transformation
-@uint8ify
 def find_edges(image):
     return skimage.filters.sobel(image)
 
 @transformation
-@uint8ify
 def threshold_otsu(ndarray, mult=1):
 
     otsu_value = skimage.filters.threshold_otsu(ndarray)
@@ -135,7 +130,6 @@ def threshold_otsu(ndarray, mult=1):
     return ndarray > mult * otsu_value
 
 @transformation
-@uint8ify
 def remove_small_objects(image, min_size=50):
 
     nosmall = skimage.morphology.remove_small_objects(image.astype(bool), 
@@ -180,7 +174,6 @@ def find_connected_components(image, neighbors=8, background=None):
     return connected_components
 
 @transformation
-@uint8ify
 def watershed_with_seeds(image, seed_image, mask_image=None):
     """Perform watershed segmentation from given seeds. Inputs should be of the
     form:
@@ -200,7 +193,6 @@ def watershed_with_seeds(image, seed_image, mask_image=None):
     return segmented
 
 @transformation
-@uint8ify
 def filter_segmentation(image_array, min_size=None):
     """Filter the given segmentation, removing objects smaller than the minimum
     size. If min_size is none, remove everything smaller than 10% of the mean
