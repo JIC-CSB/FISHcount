@@ -188,21 +188,16 @@ def segmentation_border_image(segmentation, index, width=1):
 
     return border
 
-def generate_annotated_image(segmentation, probe_loc_sets, stacks, imsave):
-
-    norm_stack = scale_median_stack(stacks[0])
+def generate_annotated_channel(segmentation, probe_locs, stack, imsave):
+    norm_stack = scale_median_stack(stack)
     annot_proj = max_intensity_projection(norm_stack, name='annot_proj')
 
     compressed = convert_to_uint8( annot_proj)
     eqproj = equalize_adaptive(compressed)
     eqproj_uint8 = convert_to_uint8(eqproj)
-    imsave('eqproj.png', eqproj_uint8)
 
     zero_pad = np.zeros(eqproj_uint8.shape, eqproj_uint8.dtype)
     red_image = np.dstack([eqproj_uint8, zero_pad, zero_pad])
-
-    if imsave:
-        imsave('pretty_proj.png', red_image)
 
     white16 = 255 << 8, 255 << 8, 255 << 8
     white8 = 255, 255, 255
@@ -214,10 +209,9 @@ def generate_annotated_image(segmentation, probe_loc_sets, stacks, imsave):
         seg_area = set(zip(*np.where(segmentation == index)))
 
         probe_counts = []
-        for probe_locs in probe_loc_sets:
-            selected_probes = set(probe_locs) & seg_area
-            n_probes = len(selected_probes)
-            probe_counts.append(n_probes)
+        selected_probes = set(probe_locs) & seg_area
+        n_probes = len(selected_probes)
+        probe_counts.append(n_probes)
 
         ox, oy = component_find_centroid(segmentation, index)
         pixel_area = len(seg_area)
@@ -227,8 +221,20 @@ def generate_annotated_image(segmentation, probe_loc_sets, stacks, imsave):
 
         text_at(red_image, str(pixel_area), ox+30, oy-20, white8)
 
+    return red_image
+    
+def generate_annotated_image(segmentation, probe_loc_sets, stacks, imsave):
+    annotated_image = None
+    for i in range(len(stacks)):
+        tmp = generate_annotated_channel(segmentation, 
+            probe_loc_sets[i], stacks[i], imsave)
+        if annotated_image is None:
+            annotated_image = tmp
+        else:
+            annotated_image = np.concatenate((annotated_image, tmp), axis=1)
+    
     if imsave:
-        imsave('annotated_projection.png', red_image)
+        imsave('annotated_projection.png', annotated_image)
 
 def count_and_annotate(confocal_image, pchannels, imsave):
     """Find probe locations, segment the image and produce an annotated image
