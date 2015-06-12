@@ -224,3 +224,10 @@ def filter_segmentation(image_array, min_size=None):
             filtered_ia[zip(*coords)] = background
 
     return filtered_ia
+
+def component_find_centroid(connected_components, index):
+    loc = np.mean(np.where(connected_components.image_array == index), axis=1)
+
+    x, y = map(int, loc)
+
+    return x, y

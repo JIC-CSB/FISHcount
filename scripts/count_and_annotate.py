@@ -7,7 +7,7 @@ import argparse
 
 import numpy as np
 
-from jicimagelib.io import FileBackend
+from jicimagelib.io import FileBackend, AutoName
 from jicimagelib.image import DataManager, Image
 from jicimagelib.transform import transformation
 
@@ -279,6 +279,7 @@ def main():
 
     safe_mkdir(args.output_dir)
 
+    AutoName.directory = args.output_dir
     def imsave_with_outdir(fname, im):
         """Save images to the specified output directory."""
         fpath = os.path.join(args.output_dir, fname)
