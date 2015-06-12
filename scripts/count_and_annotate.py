@@ -150,30 +150,30 @@ def generate_probe_loc_image(norm_projection, probe_locs, imsave):
     
     imsave('probe_locations.png', probe_loc_image)
 
-def find_probe_locations(raw_z_stack):
+def find_probe_locations(raw_z_stack, imsave):
 
     normed_stack = scale_median_stack(raw_z_stack)
     norm_projection = max_intensity_projection(normed_stack)
     edges = find_edges(norm_projection)
     exemplar = find_best_template(edges)
     match_result = match_template(edges, exemplar, pad_input=True)
-    scipy.misc.imsave('match_result.png', match_result)
+    imsave('match_result.png', match_result)
 
     match_thresh = 0.6
 
     locs = np.where(match_result > match_thresh)
     annotated_edges = grayscale_to_rgb(edges)
     annotated_edges[locs] = edges.max(), 0, 0
-    scipy.misc.imsave('annotated_edges.png', annotated_edges)
+    imsave('annotated_edges.png', annotated_edges)
 
     cloc_array = match_result > match_thresh
-    scipy.misc.imsave('cloc_array.png', cloc_array)
+    imsave('cloc_array.png', cloc_array)
     connected_components = find_connected_components(cloc_array)
     centroids = component_centroids(connected_components)
 
     probe_locs = zip(*np.where(centroids != 0))
 
-    generate_probe_loc_image(norm_projection, probe_locs, scipy.misc.imsave)
+    generate_probe_loc_image(norm_projection, probe_locs, imsave)
 
     return probe_locs
 
@@ -246,7 +246,7 @@ def count_and_annotate(confocal_image, pchannels, imsave):
     segmentation = segment_image(image_collection)
 
     probe_stacks = [image_collection.zstack_array(c=pc) for pc in pchannels]
-    probe_location_sets = [find_probe_locations(ps) for ps in probe_stacks]
+    probe_location_sets = [find_probe_locations(ps, imsave) for ps in probe_stacks]
 
     generate_annotated_image(segmentation, probe_location_sets, 
                              probe_stacks, imsave)
