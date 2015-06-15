@@ -16,7 +16,6 @@ from skimage.morphology import disk, erosion
 from skimage.feature import match_template
 
 
-
 from protoimg2.transform import (
     max_intensity_projection, 
     min_intensity_projection,
@@ -44,6 +43,8 @@ from protoimg2.annotate import (
 
 HERE = os.path.dirname(__file__)
 UNPACK = os.path.join(HERE, '..', 'data', 'jic_backend')
+
+PROBE_RADIUS = 3
 
 
 def grayscale_to_rgb(image_array):
@@ -118,8 +119,8 @@ def segment_image(image_collection):
 def make_stage1_template():
     """Make a template for initial matching. This is an annulus."""
 
-    template = disk(3)
-    template[3, 3] = 0
+    template = disk(PROBE_RADIUS)
+    template[PROBE_RADIUS, PROBE_RADIUS] = 0
 
     return template
 
@@ -133,13 +134,12 @@ def find_best_template(edges):
     cmax = np.max(stage1_match)
     px, py = zip(*np.where(stage1_match == cmax))[0]
 
-    tr = 4
-    better_template = edges[px-tr:px+tr,py-tr:py+tr]
+    better_template = edges[px-PROBE_RADIUS:px+PROBE_RADIUS+1,py-PROBE_RADIUS:py+PROBE_RADIUS+1]
     #imsave('better_template.png', better_template)
 
     return better_template
 
-def generate_probe_loc_image(norm_projection, probe_locs, imsave):
+def generate_probe_loc_image(norm_projection, probe_locs, channel_id, imsave):
     """Generate an annotated image showing the probe locations as crosses."""
 
     probe_loc_image = grayscale_to_rgb(norm_projection)
@@ -148,32 +148,50 @@ def generate_probe_loc_image(norm_projection, probe_locs, imsave):
         c = random_rgb()
         draw_cross(probe_loc_image, x, y, c)
     
-    imsave('probe_locations.png', probe_loc_image)
+    imsave('probe_locations_channel_{}.png'.format(channel_id+1), probe_loc_image)
 
-def find_probe_locations(raw_z_stack, imsave):
+def calculate_probe_intensities(norm_projection, probe_locs, channel_id):
+    """Calculate the probe intensities."""
+    circle = disk(PROBE_RADIUS)
+    fname= 'intensities_channel_{}.csv'.format(channel_id+1)
+    fpath = os.path.join(AutoName.directory, fname)
+    with open(fpath, 'w') as fh:
+        fh.write('"x","y","max_intensity","sum_intensity"\n')
+        for x, y in probe_locs:
+            pixels = norm_projection[x-PROBE_RADIUS:x+PROBE_RADIUS+1, y-PROBE_RADIUS:y+PROBE_RADIUS+1]
+            max_intensity = np.max(pixels * circle)
+            sum_intensity = np.sum(pixels * circle)
+            fh.write('{},{},{},{}\n'.format(x, y, max_intensity, sum_intensity))
+
+def find_probe_locations(raw_z_stack, channel_id, imsave):
 
     normed_stack = scale_median_stack(raw_z_stack)
     norm_projection = max_intensity_projection(normed_stack)
     edges = find_edges(norm_projection)
     exemplar = find_best_template(edges)
     match_result = match_template(edges, exemplar, pad_input=True)
-    imsave('match_result.png', match_result)
+    imsave('match_result_channel_{}.png'.format(channel_id+1), match_result)
 
-    match_thresh = 0.6
+    if channel_id == 0:
+        match_thresh = 0.6
+    if channel_id == 1:
+        match_thresh = 0.8
 
     locs = np.where(match_result > match_thresh)
     annotated_edges = grayscale_to_rgb(edges)
     annotated_edges[locs] = edges.max(), 0, 0
-    imsave('annotated_edges.png', annotated_edges)
+    imsave('annotated_edges_channel_{}.png'.format(channel_id+1), annotated_edges)
 
     cloc_array = match_result > match_thresh
-    imsave('cloc_array.png', cloc_array)
+    imsave('cloc_array_channel_{}.png'.format(channel_id+1), cloc_array)
     connected_components = find_connected_components(cloc_array)
     centroids = component_centroids(connected_components)
 
     probe_locs = zip(*np.where(centroids != 0))
 
-    generate_probe_loc_image(norm_projection, probe_locs, imsave)
+    generate_probe_loc_image(norm_projection, probe_locs, channel_id, imsave)
+
+    calculate_probe_intensities(norm_projection, probe_locs, channel_id)
 
     return probe_locs
 
@@ -246,7 +264,8 @@ def count_and_annotate(confocal_image, pchannels, imsave):
     segmentation = segment_image(image_collection)
 
     probe_stacks = [image_collection.zstack_array(c=pc) for pc in pchannels]
-    probe_location_sets = [find_probe_locations(ps, imsave) for ps in probe_stacks]
+    probe_location_sets = [find_probe_locations(ps, i, imsave)
+        for i, ps in enumerate(probe_stacks)]
 
     generate_annotated_image(segmentation, probe_location_sets, 
                              probe_stacks, imsave)
