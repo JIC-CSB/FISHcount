@@ -13,24 +13,17 @@ import skimage.measure
 import skimage.morphology
 import skimage.filters
 
-def normalise_array(array):
-    """Return array normalised such that all values are between 0 and 1."""
-
-    min_val = array.min()
-    max_val = array.max()
-
-    array_range = max_val - min_val
-
-    if array_range == 0:
-        return array
-
-    return (array.astype(np.float) - min_val) / array_range
-
 def convert_to_uint8(array):
     """Convert the input array to uint8, by firstly normalising it and then
     multiplying by 255 and converting to np.uint8."""
 
-    return (255 * normalise_array(array)).astype(np.uint8)
+    return (255 * normalise(array)).astype(np.uint8)
+
+def test_convert_to_uint8():
+    float_array = np.array([-1., 1], dtype=np.float)
+    expected = np.array([0, 255], dtype=np.uint8)
+    uint8_array = convert_to_uint8(expected)
+    assert np.array_equal(expected, uint8_array)
 
 @transformation
 def max_intensity_projection(stack, name='projection'):
