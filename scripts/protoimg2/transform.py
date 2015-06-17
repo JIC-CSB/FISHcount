@@ -32,20 +32,6 @@ def convert_to_uint8(array):
 
     return (255 * normalise_array(array)).astype(np.uint8)
 
-def uint8ify(transform_func):
-    """Decorator to take a transformation function and ensure that it returns
-    uint8."""
-
-    @wraps(transform_func)
-    def converted_transform(*args, **kwargs):
-        transform_result = transform_func(*args, **kwargs)
-
-        array_as_uint8 = 255 * normalise_array(transform_result)
-
-        return array_as_uint8.astype(np.uint8)
-
-    return converted_transform
-
 @transformation
 def max_intensity_projection(stack, name='projection'):
     """Return max intensity projection for stack."""
