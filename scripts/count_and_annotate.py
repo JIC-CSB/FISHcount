@@ -18,13 +18,13 @@ from jicimagelib.transform import (
     min_intensity_projection,
     smooth_gaussian,
     remove_small_objects,
+    equalize_adaptive_clahe,
 )
 
 
 from protoimg2.transform import (
     scale_median_stack,
     convert_to_uint8,
-    equalize_adaptive,
     find_edges,
     threshold_otsu,
     find_connected_components,
@@ -82,7 +82,7 @@ def generate_segmentation_seeds(raw_z_stack):
     normed_stack = scale_median_stack(raw_z_stack)
     max_projection = max_intensity_projection(normed_stack)
     compressed = convert_to_uint8(max_projection)
-    eq_proj = equalize_adaptive(compressed, n_tiles=16)
+    eq_proj = equalize_adaptive_clahe(compressed, ntiles=16)
     gauss = smooth_gaussian(eq_proj, sigma=3)
     edges = find_edges(gauss)
     thresh = threshold_otsu(edges, mult=1)
@@ -102,7 +102,7 @@ def segment_image(image_collection):
     probe_stack = image_collection.zstack_array(c=2)
     min_autof_proj = min_intensity_projection(probe_stack)
     compressed = convert_to_uint8(min_autof_proj)
-    equal_autof = equalize_adaptive(compressed)
+    equal_autof = equalize_adaptive_clahe(compressed)
     smoothed_autof = smooth_gaussian(equal_autof, sigma=5)
     edge_autof = find_edges(smoothed_autof)
     thresh_autof = threshold_otsu(smoothed_autof, mult=0.6)
@@ -212,7 +212,7 @@ def generate_annotated_channel(segmentation, probe_locs, stack, imsave):
     annot_proj = max_intensity_projection(norm_stack)
 
     compressed = convert_to_uint8( annot_proj)
-    eqproj = equalize_adaptive(compressed)
+    eqproj = equalize_adaptive_clahe(compressed)
     eqproj_uint8 = convert_to_uint8(eqproj)
 
     zero_pad = np.zeros(eqproj_uint8.shape, eqproj_uint8.dtype)

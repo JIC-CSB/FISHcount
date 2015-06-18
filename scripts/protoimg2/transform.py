@@ -4,7 +4,7 @@ import numpy as np
 import scipy.misc
 
 from jicimagelib.transform import transformation
-from jicimagelib.util.array import normalise
+from jicimagelib.util.array import normalise, map_stack
 
 from skimage.exposure import equalize_adapthist
 from skimage.morphology import watershed
@@ -32,51 +32,30 @@ def scale_median(input_image):
 
     return input_image * norm_factor
 
-def scale_median_stack(stack):
+def scale_median_stack(stack):  # Move to jicimagelib.util.array
     """Normalise and return stack."""
-    
-    _, _, zdim = stack.shape
-
-    stack_array = np.dstack([scale_median(stack[:,:,n])
-                               for n in range(zdim)])
-
-    return stack_array
+    return map_stack(stack, scale_median)
 
 @transformation
-def equalize_adaptive(image, n_tiles=8, clip_limit=0.01):
+def equalize_adaptive_clahe(image, ntiles=8, clip_limit=0.01):
     
     eqproj = equalize_adapthist(image,
-                                ntiles_x=n_tiles, 
-                                ntiles_y=n_tiles,
+                                ntiles_x=ntiles, 
+                                ntiles_y=ntiles,
                                 clip_limit=clip_limit)
 
     return eqproj
 
-@transformation
-def gaussian_filter(image, sigma=0.4):
-
-    gauss = skimage.filters.gaussian_filter(image, sigma=sigma)
-
-    return gauss
-
-@transformation
+@transformation # returns float; find_edges_sobel
 def find_edges(image):
     return skimage.filters.sobel(image)
 
-@transformation
+@transformation # returns bool
 def threshold_otsu(ndarray, mult=1):
 
     otsu_value = skimage.filters.threshold_otsu(ndarray)
 
     return ndarray > mult * otsu_value
-
-@transformation
-def remove_small_objects(image, min_size=50):
-
-    nosmall = skimage.morphology.remove_small_objects(image.astype(bool), 
-                                                      min_size=min_size)
-
-    return nosmall
 
 def component_find_centroid(connected_components, index):
     loc = np.mean(np.where(connected_components == index), axis=1)
