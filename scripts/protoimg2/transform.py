@@ -25,44 +25,6 @@ def test_convert_to_uint8():
     uint8_array = convert_to_uint8(expected)
     assert np.array_equal(expected, uint8_array)
 
-@transformation
-def max_intensity_projection(stack, name='projection'):
-    """Return max intensity projection for stack."""
-
-    iz_max = np.argmax(stack, 2)
-
-    xmax, ymax, _ = stack.shape
-
-    projection = np.zeros((xmax, ymax), dtype=stack.dtype)
-
-    for x in range(xmax):
-        for y in range(ymax):
-            projection[x, y] = stack[x, y, iz_max[x, y]]
-
-    return projection
-
-def projection_by_function(sa, z_function):
-    """Generate a projection by applying the given function to each line of
-    constant x, y in the image."""
-
-    xmax, ymax, _ = sa.shape
-
-    projection = np.zeros((xmax, ymax), dtype=sa.dtype)
-
-    for x in range(xmax):
-        for y in range(ymax):
-            projection[x, y] = z_function(sa[x, y, :])
-
-    return projection
-
-@transformation
-def min_intensity_projection(stack, name='min_projection'):
-    """Return minimum intensity projection for stack."""
-
-    min_proj = projection_by_function(stack, min)
-
-    return min_proj
-
 def scale_median(input_image):
     """Normalise a single channel 8 bit image (as numpy array)."""
 

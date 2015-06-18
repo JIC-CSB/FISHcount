@@ -7,18 +7,19 @@ import argparse
 
 import numpy as np
 
-from jicimagelib.io import FileBackend, AutoName
-from jicimagelib.image import DataManager, Image
-from jicimagelib.transform import transformation
-
 import scipy.misc
 from skimage.morphology import disk, erosion
 from skimage.feature import match_template
 
-
-from protoimg2.transform import (
+from jicimagelib.io import FileBackend, AutoName
+from jicimagelib.image import DataManager, Image
+from jicimagelib.transform import (
     max_intensity_projection, 
     min_intensity_projection,
+)
+
+
+from protoimg2.transform import (
     scale_median_stack,
     convert_to_uint8,
     equalize_adaptive,
@@ -208,7 +209,7 @@ def segmentation_border_image(segmentation, index, width=1):
 
 def generate_annotated_channel(segmentation, probe_locs, stack, imsave):
     norm_stack = scale_median_stack(stack)
-    annot_proj = max_intensity_projection(norm_stack, name='annot_proj')
+    annot_proj = max_intensity_projection(norm_stack)
 
     compressed = convert_to_uint8( annot_proj)
     eqproj = equalize_adaptive(compressed)
