@@ -17,6 +17,7 @@ from jicimagelib.transform import (
     max_intensity_projection, 
     min_intensity_projection,
     smooth_gaussian,
+    remove_small_objects,
 )
 
 
@@ -26,7 +27,6 @@ from protoimg2.transform import (
     equalize_adaptive,
     find_edges,
     threshold_otsu,
-    remove_small_objects,
     find_connected_components,
     component_centroids,
     watershed_with_seeds,
