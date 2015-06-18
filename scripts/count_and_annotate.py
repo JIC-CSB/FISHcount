@@ -16,6 +16,7 @@ from jicimagelib.image import DataManager, Image
 from jicimagelib.transform import (
     max_intensity_projection, 
     min_intensity_projection,
+    smooth_gaussian,
 )
 
 
@@ -23,7 +24,6 @@ from protoimg2.transform import (
     scale_median_stack,
     convert_to_uint8,
     equalize_adaptive,
-    gaussian_filter,
     find_edges,
     threshold_otsu,
     remove_small_objects,
@@ -83,7 +83,7 @@ def generate_segmentation_seeds(raw_z_stack):
     max_projection = max_intensity_projection(normed_stack)
     compressed = convert_to_uint8(max_projection)
     eq_proj = equalize_adaptive(compressed, n_tiles=16)
-    gauss = gaussian_filter(eq_proj, sigma=3)
+    gauss = smooth_gaussian(eq_proj, sigma=3)
     edges = find_edges(gauss)
     thresh = threshold_otsu(edges, mult=1)
     nosmall = remove_small_objects(thresh, min_size=500)
@@ -103,7 +103,7 @@ def segment_image(image_collection):
     min_autof_proj = min_intensity_projection(probe_stack)
     compressed = convert_to_uint8(min_autof_proj)
     equal_autof = equalize_adaptive(compressed)
-    smoothed_autof = gaussian_filter(equal_autof, sigma=5)
+    smoothed_autof = smooth_gaussian(equal_autof, sigma=5)
     edge_autof = find_edges(smoothed_autof)
     thresh_autof = threshold_otsu(smoothed_autof, mult=0.6)
 
