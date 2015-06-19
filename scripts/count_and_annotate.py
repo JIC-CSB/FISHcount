@@ -23,6 +23,7 @@ from util import (
     grayscale_to_rgb,
     safe_mkdir,
     unpack_data,
+    parse_probe_channels,
 )
 
 from util.transform import (
@@ -238,29 +239,6 @@ def count_and_annotate(confocal_image, pchannels, imsave):
 
     generate_annotated_image(segmentation, probe_location_sets, 
                              probe_stacks, imsave)
-
-def parse_probe_channels(probe_channels_as_string):
-    """Parse the command line input to specify which probe channels should be
-    analysed."""
-
-    probe_channel_list = probe_channels_as_string.split(',')
-
-    probe_channel_int_list = map(int, probe_channel_list)
-
-    def subtract1(input_int):
-        return input_int - 1
-
-    return map(subtract1, probe_channel_int_list)
-
-def test_parse_probe_channels():
-
-    example_input = "1,2"
-    parsed_input = parse_probe_channels(example_input)
-    assert(parsed_input == [0, 1])
-
-    example_input = "1"
-    parsed_input = parse_probe_channels(example_input)
-    assert(parsed_input == [0])
 
 def main():
     
