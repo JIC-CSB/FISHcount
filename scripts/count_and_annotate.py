@@ -18,6 +18,7 @@ from jicimagelib.transform import (
     min_intensity_projection,
     smooth_gaussian,
     remove_small_objects,
+    threshold_otsu,
     equalize_adaptive_clahe,
 )
 
@@ -26,7 +27,6 @@ from protoimg2.transform import (
     scale_median_stack,
     convert_to_uint8,
     find_edges,
-    threshold_otsu,
     find_connected_components,
     component_centroids,
     watershed_with_seeds,
@@ -84,7 +84,7 @@ def generate_segmentation_seeds(raw_z_stack):
     eq_proj = equalize_adaptive_clahe(max_projection, ntiles=16)
     gauss = smooth_gaussian(eq_proj, sigma=3)
     edges = find_edges(gauss)
-    thresh = threshold_otsu(edges, mult=1)
+    thresh = threshold_otsu(edges, multiplier=1)
     nosmall = remove_small_objects(thresh, min_size=500)
     connected_components = find_connected_components(nosmall, background=0)
     seeds = component_centroids(connected_components)
@@ -103,7 +103,7 @@ def segment_image(image_collection):
     equal_autof = equalize_adaptive_clahe(min_autof_proj)
     smoothed_autof = smooth_gaussian(equal_autof, sigma=5)
     edge_autof = find_edges(smoothed_autof)
-    thresh_autof = threshold_otsu(smoothed_autof, mult=0.6)
+    thresh_autof = threshold_otsu(smoothed_autof, multiplier=0.6)
 
     segmentation = watershed_with_seeds(smoothed_autof, seeds,
                                mask_image=thresh_autof)
