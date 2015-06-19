@@ -23,7 +23,7 @@ from jicimagelib.transform import (
 )
 
 
-from protoimg2.transform import (
+from util.transform import (
     scale_median_stack,
     convert_to_uint8,
     find_edges,
@@ -34,7 +34,7 @@ from protoimg2.transform import (
     component_find_centroid
 )
 
-from protoimg2.annotate import (
+from util.annotate import (
     text_at,
     draw_cross,
     random_rgb
