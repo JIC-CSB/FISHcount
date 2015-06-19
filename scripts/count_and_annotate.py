@@ -12,10 +12,6 @@ from skimage.feature import match_template
 from jicimagelib.io import AutoName
 from jicimagelib.transform import (
     max_intensity_projection, 
-    min_intensity_projection,
-    smooth_gaussian,
-    remove_small_objects,
-    threshold_otsu,
     equalize_adaptive_clahe,
 )
 
@@ -32,8 +28,6 @@ from util.transform import (
     find_edges,
     find_connected_components,
     component_centroids,
-    watershed_with_seeds,
-    filter_segmentation,
     component_find_centroid
 )
 
@@ -43,49 +37,12 @@ from util.annotate import (
     random_rgb
 )
 
+from segment import segment_image
+
 #from segmentation_from_stack import segmentation_from_stacks
 
 PROBE_RADIUS = 3
 
-
-def generate_segmentation_seeds(raw_z_stack):
-    """Generate the seeds for segmentation from the z stack."""
-
-    normed_stack = scale_median_stack(raw_z_stack)
-    max_projection = max_intensity_projection(normed_stack)
-    eq_proj = equalize_adaptive_clahe(max_projection, ntiles=16)
-    gauss = smooth_gaussian(eq_proj, sigma=3)
-    edges = find_edges(gauss)
-    thresh = threshold_otsu(edges, multiplier=1)
-    nosmall = remove_small_objects(thresh, min_size=500)
-    connected_components = find_connected_components(nosmall, background=0)
-    seeds = component_centroids(connected_components)
-
-    return seeds
-
-def segment_image(image_collection):
-    """Segment the image."""
-    
-    nuclear_z_stack = image_collection.zstack_array(c=2)
-    seeds = generate_segmentation_seeds(nuclear_z_stack)
-
-    # FIXME - this isn't actually the probe stack!
-    probe_stack = image_collection.zstack_array(c=2)
-    min_autof_proj = min_intensity_projection(probe_stack)
-    equal_autof = equalize_adaptive_clahe(min_autof_proj)
-    smoothed_autof = smooth_gaussian(equal_autof, sigma=5)
-    edge_autof = find_edges(smoothed_autof)
-    thresh_autof = threshold_otsu(smoothed_autof, multiplier=0.6)
-
-    segmentation = watershed_with_seeds(smoothed_autof, seeds,
-                               mask_image=thresh_autof)
-
-    filtered_segmentation = filter_segmentation(segmentation)
-
-    re_watershed = watershed_with_seeds(smoothed_autof, filtered_segmentation,
-                                mask_image=thresh_autof)
-
-    return re_watershed
 
 def make_stage1_template():
     """Make a template for initial matching. This is an annulus."""
@@ -231,7 +188,7 @@ def count_and_annotate(confocal_image, pchannels, imsave):
 
     image_collection = unpack_data(confocal_image)
 
-    segmentation = segment_image(image_collection)
+    segmentation = segment_image(image_collection, channel=2)
 
     probe_stacks = [image_collection.zstack_array(c=pc) for pc in pchannels]
     probe_location_sets = [find_probe_locations(ps, i, imsave)
