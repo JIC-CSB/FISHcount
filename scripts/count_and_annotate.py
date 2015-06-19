@@ -1,7 +1,6 @@
 """Locate RNA FISH probes."""
 
 import os
-import errno
 import random
 import argparse
 
@@ -11,8 +10,7 @@ import scipy.misc
 from skimage.morphology import disk, erosion
 from skimage.feature import match_template
 
-from jicimagelib.io import FileBackend, AutoName
-from jicimagelib.image import DataManager, Image
+from jicimagelib.io import AutoName
 from jicimagelib.transform import (
     max_intensity_projection, 
     min_intensity_projection,
@@ -22,6 +20,11 @@ from jicimagelib.transform import (
     equalize_adaptive_clahe,
 )
 
+from util import (
+    grayscale_to_rgb,
+    safe_mkdir,
+    unpack_data,
+)
 
 from util.transform import (
     scale_median_stack,
@@ -42,39 +45,8 @@ from util.annotate import (
 
 #from segmentation_from_stack import segmentation_from_stacks
 
-HERE = os.path.dirname(__file__)
-UNPACK = os.path.join(HERE, '..', 'data', 'jic_backend')
-
 PROBE_RADIUS = 3
 
-
-def grayscale_to_rgb(image_array):
-    """Given a grayscale image array, return a colour version, setting each of
-    the RGB channels to the original value."""
-
-    return np.dstack(3 * [image_array])
-
-def safe_mkdir(dir_path):
-
-    try:
-        os.makedirs(dir_path)
-    except OSError, e:
-        if e.errno != errno.EEXIST:
-            print "Error creating directory %s" % dir_path
-            sys.exit(2)
-
-def unpack_data(confocal_file):
-    """Unpack the file and return an image collection object."""
-    safe_mkdir(UNPACK)
-
-    backend = FileBackend(UNPACK)
-    data_manager = DataManager(backend)
-
-    data_manager.load(confocal_file)
-
-    image_collection = data_manager[0]
-
-    return image_collection
 
 def generate_segmentation_seeds(raw_z_stack):
     """Generate the seeds for segmentation from the z stack."""
