@@ -17,6 +17,7 @@ from util import (
     unpack_data,
     imsave_with_outdir,
     grayscale_to_rgb,
+    human_to_computer_index,
 )
 
 from util.transform import (
@@ -110,7 +111,7 @@ def main():
         help='Channel to identify spots in (default=1)')
     args = parser.parse_args()
 
-    pchannel = args.channel - 1
+    pchannel = human_to_computer_index(args.channel)
 
     safe_mkdir(args.output_dir)
     AutoName.directory = args.output_dir

@@ -12,7 +12,12 @@ from jicimagelib.transform import (
     min_intensity_projection,
 )
 
-from util import unpack_data, safe_mkdir
+from util import (
+    unpack_data,
+    safe_mkdir,
+    human_to_computer_index,
+)
+
 from util.transform import (
     scale_median_stack,
     find_edges,
@@ -70,7 +75,7 @@ def main():
             help='Used to segment image into cells (default=3)')
     args = parser.parse_args()
 
-    nchannel = args.nuclear_channel - 1
+    nchannel = human_to_computer_index(args.nuclear_channel)
 
     safe_mkdir(args.output_dir)
     AutoName.directory = args.output_dir
