@@ -149,6 +149,10 @@ def main():
     thresholds = [args.rna_probe_channel_threshold,
         args.unspliced_probe_channel_threshold]
 
+    if args.only_rna_probe_channel:
+        pchannels = pchannels[0:1]
+        thresholds = thresholds[0:1]
+
     if any(c<0 for c in pchannels):
         parser.error('Probe channel index is one-based; index zero is invalid.')
 
