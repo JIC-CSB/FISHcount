@@ -1,7 +1,6 @@
 """Locate RNA FISH probes."""
 
 import os
-import random
 import argparse
 
 import numpy as np
