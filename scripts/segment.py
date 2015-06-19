@@ -68,16 +68,17 @@ def main():
     parser.add_argument('output_dir', help='Path to output directory.')
     parser.add_argument('-c', '--channel',
             type=int,
-            default=2,
-            help='Channel to use for segmentation (default=2)')
+            default=3,
+            help='Channel to use for segmentation (default=3)')
     args = parser.parse_args()
+
+    channel = args.channel - 1
 
     safe_mkdir(args.output_dir)
     AutoName.directory = args.output_dir
 
     image_collection = unpack_data(args.confocal_image)
-    segmentation = segment_image(image_collection, args.channel)
+    segmentation = segment_image(image_collection, channel)
 
 if __name__ == "__main__":
     main()
-
