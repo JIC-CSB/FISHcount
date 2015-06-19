@@ -81,8 +81,7 @@ def generate_segmentation_seeds(raw_z_stack):
 
     normed_stack = scale_median_stack(raw_z_stack)
     max_projection = max_intensity_projection(normed_stack)
-    compressed = convert_to_uint8(max_projection)
-    eq_proj = equalize_adaptive_clahe(compressed, ntiles=16)
+    eq_proj = equalize_adaptive_clahe(max_projection, ntiles=16)
     gauss = smooth_gaussian(eq_proj, sigma=3)
     edges = find_edges(gauss)
     thresh = threshold_otsu(edges, mult=1)
@@ -101,8 +100,7 @@ def segment_image(image_collection):
     # FIXME - this isn't actually the probe stack!
     probe_stack = image_collection.zstack_array(c=2)
     min_autof_proj = min_intensity_projection(probe_stack)
-    compressed = convert_to_uint8(min_autof_proj)
-    equal_autof = equalize_adaptive_clahe(compressed)
+    equal_autof = equalize_adaptive_clahe(min_autof_proj)
     smoothed_autof = smooth_gaussian(equal_autof, sigma=5)
     edge_autof = find_edges(smoothed_autof)
     thresh_autof = threshold_otsu(smoothed_autof, mult=0.6)
@@ -211,8 +209,7 @@ def generate_annotated_channel(segmentation, probe_locs, stack, imsave):
     norm_stack = scale_median_stack(stack)
     annot_proj = max_intensity_projection(norm_stack)
 
-    compressed = convert_to_uint8( annot_proj)
-    eqproj = equalize_adaptive_clahe(compressed)
+    eqproj = equalize_adaptive_clahe(annot_proj)
     eqproj_uint8 = convert_to_uint8(eqproj)
 
     zero_pad = np.zeros(eqproj_uint8.shape, eqproj_uint8.dtype)

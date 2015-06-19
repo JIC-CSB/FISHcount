@@ -36,16 +36,6 @@ def scale_median_stack(stack):  # Move to jicimagelib.util.array
     """Normalise and return stack."""
     return map_stack(stack, scale_median)
 
-@transformation
-def equalize_adaptive_clahe(image, ntiles=8, clip_limit=0.01):
-    
-    eqproj = equalize_adapthist(image,
-                                ntiles_x=ntiles, 
-                                ntiles_y=ntiles,
-                                clip_limit=clip_limit)
-
-    return eqproj
-
 @transformation # returns float; find_edges_sobel
 def find_edges(image):
     return skimage.filters.sobel(image)
