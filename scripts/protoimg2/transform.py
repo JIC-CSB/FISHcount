@@ -40,13 +40,6 @@ def scale_median_stack(stack):  # Move to jicimagelib.util.array
 def find_edges(image):
     return skimage.filters.sobel(image)
 
-@transformation # returns bool
-def threshold_otsu(ndarray, mult=1):
-
-    otsu_value = skimage.filters.threshold_otsu(ndarray)
-
-    return ndarray > mult * otsu_value
-
 def component_find_centroid(connected_components, index):
     loc = np.mean(np.where(connected_components == index), axis=1)
 
