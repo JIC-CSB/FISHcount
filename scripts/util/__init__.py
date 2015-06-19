@@ -43,26 +43,6 @@ def imsave_with_outdir(fname, im):
     fpath = os.path.join(AutoName.directory, fname)
     scipy.misc.imsave(fpath, im)
 
-def parse_probe_channels(probe_channels_as_string):
-    """Parse the command line input to specify which probe channels should be
-    analysed."""
-
-    probe_channel_list = probe_channels_as_string.split(',')
-
-    probe_channel_int_list = map(int, probe_channel_list)
-
-    def subtract1(input_int):
-        return input_int - 1
-
-    return map(subtract1, probe_channel_int_list)
-
-def test_parse_probe_channels():
-
-    example_input = "1,2"
-    parsed_input = parse_probe_channels(example_input)
-    assert(parsed_input == [0, 1])
-
-    example_input = "1"
-    parsed_input = parse_probe_channels(example_input)
-    assert(parsed_input == [0])
-
+def human_to_computer_index(i):
+    """Convert one-based index to zero-based."""
+    return i-1

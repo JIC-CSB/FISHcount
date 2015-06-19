@@ -19,7 +19,7 @@ from util import (
     safe_mkdir,
     unpack_data,
     imsave_with_outdir,
-    parse_probe_channels,
+    human_to_computer_index
 )
 
 from util.transform import (
@@ -104,21 +104,18 @@ def generate_annotated_image(segmentation, probe_loc_sets, stacks, imsave):
     if imsave:
         imsave('annotated_projection.png', annotated_image)
 
-def count_and_annotate(confocal_image, pchannels, imsave):
+def count_and_annotate(confocal_image, nuclear_channel, pchannels, thresholds, imsave):
     """Find probe locations, segment the image and produce an annotated image
     showing probe counts per identified cell. Probe locations are found for
     each channel in the list pchannnels."""
 
     image_collection = unpack_data(confocal_image)
 
-    segmentation = segment_image(image_collection, channel=2)
-
-    # Fix Me! This is a hack...
-    cutoffs = [0.6, 0.8]
+    segmentation = segment_image(image_collection, nuclear_channel=nuclear_channel)
 
     probe_stacks = [image_collection.zstack_array(c=pc) for pc in pchannels]
     probe_location_sets = [find_probe_locations(image_collection, i, t, imsave)
-        for i, (ps, t) in enumerate(zip(probe_stacks, cutoffs))]
+        for i, (ps, t) in enumerate(zip(probe_stacks, thresholds))]
 
     generate_annotated_image(segmentation, probe_location_sets, 
                              probe_stacks, imsave)
@@ -128,11 +125,29 @@ def main():
     parser = argparse.ArgumentParser(__doc__)
     parser.add_argument('confocal_image', help='Confocal image to analyse')
     parser.add_argument('output_dir', help='Path to output directory.')
-    parser.add_argument('-p', '--probe_channels',
-            default='1', help='Probe channels, comma separated (default 1)')
+    parser.add_argument('-o', '--only_rna_probe_channel',
+            default=False,
+            action="store_true",
+            help='Only find probes in the RNA channel')
+    parser.add_argument('-r', '--rna_probe_channel',
+            type=int, default=1, help='RNA probe channel (default 1)')
+    parser.add_argument('-u', '--unspliced_probe_channel',
+            type=int, default=2, help='RNA probe channel (default 2)')
+    parser.add_argument('-n', '--nuclear_channel',
+            type=int, default=3, help='Nuclear channel (default 2)')
+    parser.add_argument('-t', '--rna_probe_channel_threshold',
+            type=float, default=0.6,
+            help='RNA probe channel threshold (default 0.6)')
+    parser.add_argument('-s', '--unspliced_probe_channel_threshold',
+            type=float, default=0.8,
+            help='Unspliced probe channel threshold (default 0.8)')
     args = parser.parse_args()
 
-    pchannels = parse_probe_channels(args.probe_channels)
+    nchannel = human_to_computer_index(args.nuclear_channel)
+    pchannels = map(human_to_computer_index, [args.rna_probe_channel,
+        args.unspliced_probe_channel])
+    thresholds = [args.rna_probe_channel_threshold,
+        args.unspliced_probe_channel_threshold]
 
     if any(c<0 for c in pchannels):
         parser.error('Probe channel index is one-based; index zero is invalid.')
@@ -141,7 +156,8 @@ def main():
 
     AutoName.directory = args.output_dir
 
-    count_and_annotate(args.confocal_image, pchannels, imsave_with_outdir)
+    count_and_annotate(args.confocal_image, nchannel, pchannels, thresholds,
+        imsave_with_outdir)
 
 if __name__ == "__main__":
     main()
