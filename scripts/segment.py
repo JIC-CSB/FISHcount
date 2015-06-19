@@ -37,15 +37,13 @@ def generate_segmentation_seeds(raw_z_stack):
 
     return seeds
 
-def segment_image(image_collection, channel):
+def segment_image(image_collection, nuclear_channel):
     """Segment the image."""
     
-    nuclear_z_stack = image_collection.zstack_array(c=channel)
-    seeds = generate_segmentation_seeds(nuclear_z_stack)
+    nuclear_stack = image_collection.zstack_array(c=nuclear_channel)
+    seeds = generate_segmentation_seeds(nuclear_stack)
 
-    # FIXME - this isn't actually the probe stack!
-    probe_stack = image_collection.zstack_array(c=2)
-    min_autof_proj = min_intensity_projection(probe_stack)
+    min_autof_proj = min_intensity_projection(nuclear_stack)
     equal_autof = equalize_adaptive_clahe(min_autof_proj)
     smoothed_autof = smooth_gaussian(equal_autof, sigma=5)
     edge_autof = find_edges(smoothed_autof)
@@ -66,19 +64,19 @@ def main():
     parser = argparse.ArgumentParser(__doc__)
     parser.add_argument('confocal_image', help='Confocal image to analyse')
     parser.add_argument('output_dir', help='Path to output directory.')
-    parser.add_argument('-c', '--channel',
+    parser.add_argument('-n', '--nuclear_channel',
             type=int,
             default=3,
-            help='Channel to use for segmentation (default=3)')
+            help='Used to segment image into cells (default=3)')
     args = parser.parse_args()
 
-    channel = args.channel - 1
+    nchannel = args.nuclear_channel - 1
 
     safe_mkdir(args.output_dir)
     AutoName.directory = args.output_dir
 
     image_collection = unpack_data(args.confocal_image)
-    segmentation = segment_image(image_collection, channel)
+    segmentation = segment_image(image_collection, nchannel)
 
 if __name__ == "__main__":
     main()
