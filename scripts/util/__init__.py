@@ -1,8 +1,10 @@
 import os
 import errno
-import numpy as np
 
-from jicimagelib.io import FileBackend
+import numpy as np
+import scipy.misc
+
+from jicimagelib.io import FileBackend, AutoName
 from jicimagelib.image import DataManager
 
 HERE = os.path.dirname(__file__)
@@ -35,6 +37,11 @@ def unpack_data(confocal_file):
     image_collection = data_manager[0]
 
     return image_collection
+
+def imsave_with_outdir(fname, im):
+    """Save images to the specified output directory."""
+    fpath = os.path.join(AutoName.directory, fname)
+    scipy.misc.imsave(fpath, im)
 
 def parse_probe_channels(probe_channels_as_string):
     """Parse the command line input to specify which probe channels should be
