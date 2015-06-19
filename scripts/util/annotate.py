@@ -3,7 +3,7 @@ import random
 
 import numpy as np
 
-from fonty import Glyph, Font, Bitmap
+from util.fonty import Glyph, Font, Bitmap
 
 HERE = os.path.dirname(__file__)
 
