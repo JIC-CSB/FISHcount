@@ -32,7 +32,7 @@ def generate_segmentation_seeds(raw_z_stack):
     edges = find_edges(gauss)
     thresh = threshold_otsu(edges, multiplier=1)
     nosmall = remove_small_objects(thresh, min_size=500)
-    connected_components = find_connected_components(nosmall, background=0)
+    connected_components = find_connected_components(nosmall, background=None)
     seeds = component_centroids(connected_components)
 
     return seeds
