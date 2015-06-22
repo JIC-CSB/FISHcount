@@ -1,5 +1,6 @@
 """Find probe locations."""
 
+import os
 import argparse
 
 import numpy as np
@@ -8,6 +9,7 @@ from skimage.morphology import disk#, erosion
 from skimage.feature import match_template
 
 from jicimagelib.io import AutoName
+from jicimagelib.geometry import Point2D
 from jicimagelib.transform import (
     max_intensity_projection, 
 )
@@ -33,6 +35,9 @@ from util.annotate import (
 )
 
 PROBE_RADIUS = 3
+
+class Probe(Point2D):
+    """Class for storing probes."""
 
 def make_stage1_template():
     """Make a template for initial matching. This is an annulus."""
@@ -68,8 +73,8 @@ def generate_probe_loc_image(norm_projection, probe_locs, channel_id, imsave):
     
     imsave('probe_locations_channel_{}.png'.format(channel_id+1), probe_loc_image)
 
-def find_probe_locations(image_collection, channel_id, match_thresh, imsave):
-    """Return probe locations as list of x,y coordinates."""
+def find_probe_coordinates(image_collection, channel_id, match_thresh, imsave):
+    """Return list containing Probe instances."""
 
     raw_z_stack = image_collection.zstack_array(c=channel_id)
     normed_stack = scale_median_stack(raw_z_stack)
@@ -89,14 +94,43 @@ def find_probe_locations(image_collection, channel_id, match_thresh, imsave):
     connected_components = find_connected_components(cloc_array)
     centroids = component_centroids(connected_components)
 
-    probe_locs = zip(*np.where(centroids != 0))
+    probe_list = [Probe(x, y) for x, y in zip(*np.where(centroids != 0))]
 
-    generate_probe_loc_image(norm_projection, probe_locs, channel_id, imsave)
+    generate_probe_loc_image(norm_projection, probe_list, channel_id, imsave)
 
-#   calculate_probe_intensities(norm_projection, probe_locs, channel_id)
+    return probe_list
 
-    return probe_locs
+def calculate_probe_intensities(image_collection, probe_list, channel_id):
+    """Return ProbeList with probe intensities added to it.
+    
+    Write out csv file with max_intensity and sum_intensity.
+    """
+    # IS THIS REALLY WHAT WE WANT TO BE CALCULATING INTENSITY VALUES FROM?
+    raw_z_stack = image_collection.zstack_array(c=channel_id)
+    normed_stack = scale_median_stack(raw_z_stack)
+    norm_projection = max_intensity_projection(normed_stack)
 
+    circle = disk(PROBE_RADIUS)
+    fname= 'intensities_channel_{}.csv'.format(channel_id+1)
+    fpath = os.path.join(AutoName.directory, fname)
+    with open(fpath, 'w') as fh:
+        fh.write('"x","y","max_intensity","sum_intensity"\n')
+        for probe in probe_list:
+            x, y = probe.astuple()
+            pixels = norm_projection[x-PROBE_RADIUS:x+PROBE_RADIUS+1, y-PROBE_RADIUS:y+PROBE_RADIUS+1]
+            probe.max_intensity = np.max(pixels * circle)
+            probe.sum_intensity = np.sum(pixels * circle)
+            fh.write('{},{},{},{}\n'.format(x, y, probe.max_intensity, probe.sum_intensity))
+    return probe_list
+
+def find_probes(image_collection, channel_id, match_thresh, imsave):
+    """Return ProbeList contianing Probe instances with intensity values."""
+    probe_list = find_probe_coordinates(image_collection, channel_id,
+        match_thresh, imsave)
+    probe_list = calculate_probe_intensities(image_collection, probe_list,
+        channel_id)
+    return probe_list
+    
 
 def main():
     
@@ -117,10 +151,15 @@ def main():
     AutoName.directory = args.output_dir
 
     image_collection = unpack_data(args.confocal_image)
-    probe_locations = find_probe_locations(image_collection,
+    probe_locations = find_probes(image_collection,
         pchannel,
         args.threshold,
         imsave_with_outdir)
+    assert hasattr(probe_locations[0], 'x')
+    assert hasattr(probe_locations[0], 'y')
+    assert hasattr(probe_locations[0], 'max_intensity')
+    assert hasattr(probe_locations[0], 'sum_intensity')
+
 
 if __name__ == "__main__":
     main()

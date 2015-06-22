@@ -33,19 +33,6 @@ from util.annotate import text_at
 from segment import segment_image
 from find_probe_locations import find_probe_locations
 
-def calculate_probe_intensities(norm_projection, probe_locs, channel_id):
-    """Calculate the probe intensities."""
-    circle = disk(PROBE_RADIUS)
-    fname= 'intensities_channel_{}.csv'.format(channel_id+1)
-    fpath = os.path.join(AutoName.directory, fname)
-    with open(fpath, 'w') as fh:
-        fh.write('"x","y","max_intensity","sum_intensity"\n')
-        for x, y in probe_locs:
-            pixels = norm_projection[x-PROBE_RADIUS:x+PROBE_RADIUS+1, y-PROBE_RADIUS:y+PROBE_RADIUS+1]
-            max_intensity = np.max(pixels * circle)
-            sum_intensity = np.sum(pixels * circle)
-            fh.write('{},{},{},{}\n'.format(x, y, max_intensity, sum_intensity))
-
 def segmentation_border_image(segmentation, index, width=1):
 
     isolated_region = np.zeros(segmentation.shape, dtype=np.uint8)
