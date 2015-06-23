@@ -64,7 +64,7 @@ def generate_annotated_channel(segmentation, probe_locs, stack, imsave):
         seg_area = set(zip(*np.where(segmentation == index)))
 
         probe_counts = []
-        selected_probes = set(probe_locs) & seg_area
+        selected_probes = set([p.astuple() for p in probe_locs]) & seg_area
         n_probes = len(selected_probes)
         probe_counts.append(n_probes)
 
