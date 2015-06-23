@@ -46,3 +46,7 @@ def imsave_with_outdir(fname, im):
 def human_to_computer_index(i):
     """Convert one-based index to zero-based."""
     return i-1
+
+def computer_to_human_index(i):
+    """Convert one-based index to zero-based."""
+    return i+1
