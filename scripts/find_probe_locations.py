@@ -5,7 +5,7 @@ import argparse
 
 import numpy as np
 
-from skimage.morphology import disk#, erosion
+from skimage.morphology import disk
 from skimage.feature import match_template
 
 from jicimagelib.io import AutoName
@@ -73,7 +73,7 @@ def generate_probe_loc_image(norm_projection, probe_locs, channel_id, imsave):
     
     imsave('probe_locations_channel_{}.png'.format(channel_id+1), probe_loc_image)
 
-def find_probe_coordinates(image_collection, channel_id, match_thresh, imsave):
+def find_probe_locations(image_collection, channel_id, match_thresh, imsave):
     """Return list containing Probe instances."""
 
     raw_z_stack = image_collection.zstack_array(c=channel_id)
@@ -100,38 +100,6 @@ def find_probe_coordinates(image_collection, channel_id, match_thresh, imsave):
 
     return probe_list
 
-def calculate_probe_intensities(image_collection, probe_list, channel_id):
-    """Return ProbeList with probe intensities added to it.
-    
-    Write out csv file with max_intensity and sum_intensity.
-    """
-    # IS THIS REALLY WHAT WE WANT TO BE CALCULATING INTENSITY VALUES FROM?
-    raw_z_stack = image_collection.zstack_array(c=channel_id)
-    normed_stack = scale_median_stack(raw_z_stack)
-    norm_projection = max_intensity_projection(normed_stack)
-
-    circle = disk(PROBE_RADIUS)
-    fname= 'intensities_channel_{}.csv'.format(channel_id+1)
-    fpath = os.path.join(AutoName.directory, fname)
-    with open(fpath, 'w') as fh:
-        fh.write('"x","y","max_intensity","sum_intensity"\n')
-        for probe in probe_list:
-            x, y = probe.astuple()
-            pixels = norm_projection[x-PROBE_RADIUS:x+PROBE_RADIUS+1, y-PROBE_RADIUS:y+PROBE_RADIUS+1]
-            probe.max_intensity = np.max(pixels * circle)
-            probe.sum_intensity = np.sum(pixels * circle)
-            fh.write('{},{},{},{}\n'.format(x, y, probe.max_intensity, probe.sum_intensity))
-    return probe_list
-
-def find_probes(image_collection, channel_id, match_thresh, imsave):
-    """Return ProbeList contianing Probe instances with intensity values."""
-    probe_list = find_probe_coordinates(image_collection, channel_id,
-        match_thresh, imsave)
-    probe_list = calculate_probe_intensities(image_collection, probe_list,
-        channel_id)
-    return probe_list
-    
-
 def main():
     
     parser = argparse.ArgumentParser(__doc__)
@@ -151,15 +119,8 @@ def main():
     AutoName.directory = args.output_dir
 
     image_collection = unpack_data(args.confocal_image)
-    probe_locations = find_probes(image_collection,
-        pchannel,
-        args.threshold,
+    find_probe_locations(image_collection, pchannel, args.threshold,
         imsave_with_outdir)
-    assert hasattr(probe_locations[0], 'x')
-    assert hasattr(probe_locations[0], 'y')
-    assert hasattr(probe_locations[0], 'max_intensity')
-    assert hasattr(probe_locations[0], 'sum_intensity')
-
 
 if __name__ == "__main__":
     main()
