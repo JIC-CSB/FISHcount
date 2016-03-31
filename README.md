@@ -32,6 +32,7 @@ a virtual Python environment).
 
 ```bash
 sudo easy_install virtualenv
+virtualenv env
 ```
 
 Source the virtual environment (note the ``.`` at the start of the line).
@@ -47,12 +48,15 @@ pip install numpy
 pip install pillow
 pip install scipy
 pip install six
-pip install scikit-image
+pip install "scikit-image==0.10.1"
 pip install freetype-py
 pip install libtiff
 ```
 
 ### Install BioFormats ``bftools``
+
+**If you are working with czi file you may need BioFormats less than version 4.4.4,
+e.g. 4.4.2**
 
 The Python image analysis code works on Tiff files. We therefore need to
 convert the microscopy data using the BioFormats ``bfconvert`` tool.
@@ -84,6 +88,19 @@ export PATH=$PATH:~/tools/bftools
 ```
 
 ## Image analysis
+
+### Download FISHCount software
+
+Download the FISHcount software zip file from GitHub.
+
+https://github.com/JIC-CSB/FISHcount/archive/master.zip
+
+Go into the FISHCount directory (e.g. ``~/Downlaods/FISHcount``).
+
+```
+cd ~/Downloads/FISHcount
+```
+
 
 ### Convert microscopy images to tiff files
 
