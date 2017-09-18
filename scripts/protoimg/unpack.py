@@ -11,7 +11,7 @@ BFCONVERT = 'bfconvert'
 
 def mkdir_p(path):
     try:
-        os.makedirs(path)   
+        os.makedirs(path)
     except OSError as exc:
         # FIXME
         if exc.errno == errno.EEXIST:
@@ -55,9 +55,10 @@ def unpack(image_file, output_dir, output_format='.tif'):
     format_specifier = name + '_S%s_C%c_Z%z' + output_format
 
     unpack_cmd = [BFCONVERT]
+    unpack_cmd += ["-nolookup"]
     unpack_cmd += [image_file]
     unpack_cmd += [os.path.join(output_dir, format_specifier)]
-     
+
     subprocess.call(unpack_cmd)
 
 def main():
