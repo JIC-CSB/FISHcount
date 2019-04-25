@@ -1,4 +1,4 @@
-import skimage.filter
+import skimage.filters
 import skimage.measure
 from skimage.morphology import remove_small_objects as _remove_small_objects
 from skimage.morphology import disk, binary_closing, watershed, dilation
@@ -31,6 +31,18 @@ def make_named_transform(name):
 
     return make_transform
 
+
+def scale_to_uint8(array):
+
+    scaled = array.astype(np.float32)
+
+    if scaled.max() - scaled.min() == 0:
+        return np.zeros(array.shape, dtype=np.uint8)
+
+    scaled = 255 * (scaled - scaled.min()) / (scaled.max() - scaled.min())
+
+    return scaled.astype(np.uint8)
+
 class ImageArray(object):
 
     def __init__(self, image_array, name=None):
@@ -49,7 +61,10 @@ class ImageArray(object):
             else:
                 filename = self.name + '.png'
 
-        imsave(filename, self.image_array)
+        scaled_array = scale_to_uint8(self.image_array)
+
+        imsave(filename, scaled_array)
+
 
 def projection_by_function(sa, z_function):
     """Generate a projection by applying the given function to each line of
@@ -111,7 +126,7 @@ def equalize_adaptive(image, n_tiles=8, clip_limit=0.01, name='equalize_adaptive
 
 def gaussian_filter(image, sigma=0.4, name='gaussian_filter'):
 
-    gauss = skimage.filter.gaussian_filter(image.image_array, sigma=sigma)
+    gauss = skimage.filters.gaussian_filter(image.image_array, sigma=sigma)
 
     ia = ImageArray(gauss, name)
     ia.history = image.history + [name]
@@ -121,12 +136,12 @@ def gaussian_filter(image, sigma=0.4, name='gaussian_filter'):
 
 @make_named_transform('find_edges')
 def find_edges(ndarray):
-    return skimage.filter.sobel(ndarray)
+    return skimage.filters.sobel(ndarray)
 
 @make_named_transform('thresh_otsu')
 def threshold_otsu(ndarray, mult=1):
 
-    otsu_value = skimage.filter.threshold_otsu(ndarray)
+    otsu_value = skimage.filters.threshold_otsu(ndarray)
 
     return ndarray > mult * otsu_value
 

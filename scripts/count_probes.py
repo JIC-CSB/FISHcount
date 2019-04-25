@@ -47,6 +47,19 @@ def segmentation_border_image(segmentation, index, width=1):
 
     return border
 
+
+def scale_to_uint8(array):
+
+    scaled = array.astype(np.float32)
+
+    if scaled.max() - scaled.min() == 0:
+        return np.zeros(array.shape, dtype=np.uint8)
+
+    scaled = 255 * (scaled - scaled.min()) / (scaled.max() - scaled.min())
+
+    return scaled.astype(np.uint8)
+
+
 def generate_annotated_image(segmentation, probe_locs, stack_path, imsave, pchannel):
 
     stack = Stack.from_path(stack_path, channel=pchannel)
@@ -57,21 +70,22 @@ def generate_annotated_image(segmentation, probe_locs, stack_path, imsave, pchan
     imsave('eqproj.png', eqproj)
 
     zero_pad = np.zeros(eqproj.shape, eqproj.dtype)
-    red_image = np.dstack([eqproj, zero_pad, zero_pad])
+    red_image = scale_to_uint8(np.dstack([eqproj, zero_pad, zero_pad]))
 
     if imsave:
         imsave('pretty_proj.png', red_image)
 
     white16 = 255 << 8, 255 << 8, 255 << 8
+    white8 = 255, 255, 255
     real_ids = set(np.unique(segmentation.image_array)) - set([0])
     for index in real_ids:
         border = segmentation_border_image(segmentation, index)
-        red_image[np.where(border == 255)] = 255 << 8, 255 << 8, 255 << 8
+        red_image[np.where(border == 255)] = white8
         seg_area = set(zip(*np.where(segmentation.image_array == index)))
         selected_probes = set(probe_locs) & seg_area
         n_probes = len(selected_probes)
         ox, oy = component_find_centroid(segmentation, index)
-        text_at(red_image, str(n_probes), ox, oy, white16)
+        text_at(red_image, str(n_probes), ox, oy, white8)
 
     if imsave:
         imsave('annotated_projection.png', red_image)

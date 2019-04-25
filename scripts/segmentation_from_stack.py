@@ -86,7 +86,7 @@ def filter_segmentation(image_array, min_size=None):
 def find_segmented_regions(seeds, autof_stack, imsave):
 
     min_autof_proj = min_intensity_projection(autof_stack)
-    equal_autof = equalize_adaptive(min_autof_proj, 'equal_autof')
+    equal_autof = equalize_adaptive(min_autof_proj, name='equal_autof')
     smoothed_autof = gaussian_filter(equal_autof, sigma=5, name='smooth_autof')
     edge_autof = find_edges(smoothed_autof, name='edge_autof')
     thresh_autof = threshold_otsu(smoothed_autof, mult=0.6, name='thresh_autof')
