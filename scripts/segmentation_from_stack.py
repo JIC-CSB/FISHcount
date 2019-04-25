@@ -78,7 +78,7 @@ def filter_segmentation(image_array, min_size=None):
 
     for index, coords in by_coords.items():
         if len(coords) < min_size:
-            filtered_ia[zip(*coords)] = background
+            filtered_ia[tuple(zip(*coords))] = background
 
     return filtered_ia
 

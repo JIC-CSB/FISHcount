@@ -114,9 +114,11 @@ def max_intensity_projection(stack, name='projection'):
 
 def equalize_adaptive(image, n_tiles=8, clip_limit=0.01, name='equalize_adaptive'):
     
+    kernel_size_r = image.image_array.shape[0] // n_tiles
+    kernel_size_c = image.image_array.shape[1] // n_tiles
+
     eqproj = equalize_adapthist(image.image_array, 
-                                ntiles_x=n_tiles, 
-                                ntiles_y=n_tiles,
+                                kernel_size = (kernel_size_r, kernel_size_c),
                                 clip_limit=clip_limit)
 
     ia = ImageArray(eqproj, name)
@@ -126,7 +128,7 @@ def equalize_adaptive(image, n_tiles=8, clip_limit=0.01, name='equalize_adaptive
 
 def gaussian_filter(image, sigma=0.4, name='gaussian_filter'):
 
-    gauss = skimage.filters.gaussian_filter(image.image_array, sigma=sigma)
+    gauss = skimage.filters.gaussian(image.image_array, sigma=sigma)
 
     ia = ImageArray(gauss, name)
     ia.history = image.history + [name]
